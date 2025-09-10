@@ -1,0 +1,286 @@
+import { useState } from "react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import Header from "./Header";
+import CalendarGrid from "./CalendarGrid";
+import UserManagement from "./UserManagement";
+import ShiftTradeManager from "./ShiftTradeManager";
+import AdminPanel from "./AdminPanel";
+import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { toast } from "@/hooks/use-toast";
+import jsPDF from 'jspdf';
+
+// TODO: remove mock data
+const mockCurrentUser = {
+  id: '1',
+  name: 'Dr. Sarah Smith',
+  role: 'physician' as const,
+  isAdmin: true
+};
+
+// TODO: remove mock data
+const mockUsers = [
+  { id: '1', name: 'Dr. Sarah Smith', phone: '555-0101', role: 'physician' as const, monthlyShiftLimit: 8, isActive: true, currentShiftCount: 3 },
+  { id: '2', name: 'Dr. Michael Johnson', phone: '555-0102', role: 'physician' as const, monthlyShiftLimit: 8, isActive: true, currentShiftCount: 5 },
+  { id: '3', name: 'Dr. Emily Chen', phone: '555-0103', role: 'physician' as const, monthlyShiftLimit: 6, isActive: true, currentShiftCount: 6 },
+  { id: '4', name: 'Medical Student Alex', phone: '555-0201', role: 'learner' as const, monthlyShiftLimit: 4, isActive: true, currentShiftCount: 2 },
+  { id: '5', name: 'Resident Taylor', phone: '555-0202', role: 'learner' as const, monthlyShiftLimit: 6, isActive: true, currentShiftCount: 4 },
+];
+
+// TODO: remove mock data
+const mockSchedules = [
+  { id: 's1', day: 1, userId: '1', userName: 'Dr. Sarah Smith', userRole: 'physician' as const, status: 'scheduled' as const },
+  { id: 's2', day: 3, userId: '2', userName: 'Dr. Michael Johnson', userRole: 'physician' as const, status: 'scheduled' as const },
+  { id: 's3', day: 5, userId: '4', userName: 'Medical Student Alex', userRole: 'learner' as const, status: 'scheduled' as const },
+  { id: 's4', day: 7, userId: '1', userName: 'Dr. Sarah Smith', userRole: 'physician' as const, status: 'scheduled' as const },
+  { id: 's5', day: 10, userId: '3', userName: 'Dr. Emily Chen', userRole: 'physician' as const, status: 'scheduled' as const },
+  { id: 's6', day: 12, userId: '5', userName: 'Resident Taylor', userRole: 'learner' as const, status: 'scheduled' as const },
+  { id: 's7', day: 15, userId: '2', userName: 'Dr. Michael Johnson', userRole: 'physician' as const, status: 'scheduled' as const },
+];
+
+// TODO: remove mock data
+const mockTradeRequests = [
+  {
+    id: 'tr1',
+    fromUserId: '2',
+    fromUserName: 'Dr. Michael Johnson',
+    toUserId: '1',
+    toUserName: 'Dr. Sarah Smith',
+    scheduleId: 's2',
+    shiftDate: new Date(2024, 0, 3),
+    status: 'pending' as const,
+    requestedAt: new Date(2024, 0, 1),
+  }
+];
+
+export default function SchedulingDashboard() {
+  const [currentMonth, setCurrentMonth] = useState("January 2024");
+  const [shareDialogOpen, setShareDialogOpen] = useState(false);
+  const [shareLink, setShareLink] = useState("");
+  const [users, setUsers] = useState(mockUsers);
+  const [schedules, setSchedules] = useState(mockSchedules);
+  const [tradeRequests, setTradeRequests] = useState(mockTradeRequests);
+  const [monthlySettings, setMonthlySettings] = useState({
+    month: 1,
+    year: 2024,
+    isPublished: true,
+    publicShareToken: 'abc123def456'
+  });
+
+  const handleMonthChange = (month: string) => {
+    setCurrentMonth(month);
+    console.log('Month changed to:', month);
+  };
+
+  const handleExportPDF = () => {
+    // TODO: remove mock functionality
+    const doc = new jsPDF();
+    doc.text('EHS LifeFlight Adult MCP Schedule', 20, 20);
+    doc.text(`${currentMonth}`, 20, 40);
+    doc.text('Schedule will be generated here...', 20, 60);
+    doc.save(`EHS-LifeFlight-Schedule-${currentMonth.replace(' ', '-')}.pdf`);
+    
+    toast({
+      title: "PDF Generated",
+      description: `Schedule for ${currentMonth} has been exported to PDF.`,
+    });
+  };
+
+  const handleShare = () => {
+    // TODO: remove mock functionality
+    const mockShareLink = `https://scheduler.ehs.com/public/${monthlySettings.publicShareToken}`;
+    setShareLink(mockShareLink);
+    setShareDialogOpen(true);
+  };
+
+  const handleSettings = () => {
+    console.log('Opening admin settings');
+  };
+
+  const handleDayClick = (day: number) => {
+    const user = users.find(u => u.id === mockCurrentUser.id);
+    if (!user) return;
+
+    const existingSchedule = schedules.find(s => s.day === day && s.userId === user.id);
+    
+    if (existingSchedule) {
+      // Remove the schedule
+      setSchedules(prev => prev.filter(s => s.id !== existingSchedule.id));
+      setUsers(prev => prev.map(u => 
+        u.id === user.id 
+          ? { ...u, currentShiftCount: u.currentShiftCount - 1 }
+          : u
+      ));
+      toast({
+        title: "Shift Removed",
+        description: `You have been removed from ${currentMonth.split(' ')[0]} ${day}.`,
+      });
+    } else if (user.currentShiftCount < user.monthlyShiftLimit) {
+      // Add the schedule
+      const newSchedule = {
+        id: `s${Date.now()}`,
+        day,
+        userId: user.id,
+        userName: user.name,
+        userRole: user.role,
+        status: 'scheduled' as const
+      };
+      setSchedules(prev => [...prev, newSchedule]);
+      setUsers(prev => prev.map(u => 
+        u.id === user.id 
+          ? { ...u, currentShiftCount: u.currentShiftCount + 1 }
+          : u
+      ));
+      toast({
+        title: "Shift Added",
+        description: `You have been scheduled for ${currentMonth.split(' ')[0]} ${day}.`,
+      });
+    } else {
+      toast({
+        title: "Shift Limit Reached",
+        description: `You have reached your monthly limit of ${user.monthlyShiftLimit} shifts.`,
+        variant: "destructive"
+      });
+    }
+  };
+
+  const handleTradeRequest = (scheduleId: string) => {
+    console.log('Trade request for schedule:', scheduleId);
+    toast({
+      title: "Trade Request",
+      description: "Trade request functionality will be implemented in the full app.",
+    });
+  };
+
+  const handleAddUser = (userData: any) => {
+    const newUser = {
+      ...userData,
+      id: `user${Date.now()}`,
+      currentShiftCount: 0
+    };
+    setUsers(prev => [...prev, newUser]);
+    toast({
+      title: "User Added",
+      description: `${userData.name} has been added to the team.`,
+    });
+  };
+
+  const handleUpdateUser = (id: string, updates: any) => {
+    setUsers(prev => prev.map(u => u.id === id ? { ...u, ...updates } : u));
+    toast({
+      title: "User Updated",
+      description: "User information has been updated.",
+    });
+  };
+
+  const handleDeleteUser = (id: string) => {
+    setUsers(prev => prev.filter(u => u.id !== id));
+    toast({
+      title: "User Removed",
+      description: "User has been removed from the team.",
+    });
+  };
+
+  const copyShareLink = () => {
+    navigator.clipboard.writeText(shareLink);
+    toast({
+      title: "Link Copied",
+      description: "Share link has been copied to clipboard.",
+    });
+  };
+
+  return (
+    <div className="min-h-screen bg-background">
+      <Header 
+        currentMonth={currentMonth}
+        onMonthChange={handleMonthChange}
+        onExportPDF={handleExportPDF}
+        onShare={handleShare}
+        onSettings={handleSettings}
+        isAdmin={mockCurrentUser.isAdmin}
+      />
+
+      <div className="container mx-auto px-6 py-6">
+        <Tabs defaultValue="schedule" className="space-y-6">
+          <TabsList>
+            <TabsTrigger value="schedule" data-testid="tab-schedule">Schedule</TabsTrigger>
+            <TabsTrigger value="trades" data-testid="tab-trades">Shift Trades</TabsTrigger>
+            <TabsTrigger value="team" data-testid="tab-team">Team</TabsTrigger>
+            {mockCurrentUser.isAdmin && (
+              <TabsTrigger value="admin" data-testid="tab-admin">Admin</TabsTrigger>
+            )}
+          </TabsList>
+
+          <TabsContent value="schedule" className="space-y-6">
+            <CalendarGrid 
+              month={1}
+              year={2024}
+              schedules={schedules}
+              users={users}
+              currentUserId={mockCurrentUser.id}
+              onDayClick={handleDayClick}
+              onTradeRequest={handleTradeRequest}
+            />
+          </TabsContent>
+
+          <TabsContent value="trades">
+            <ShiftTradeManager 
+              tradeRequests={tradeRequests}
+              users={users}
+              currentUserId={mockCurrentUser.id}
+              onApproveTradeRequest={(id) => console.log('Approve trade:', id)}
+              onRejectTradeRequest={(id) => console.log('Reject trade:', id)}
+              onCreateTradeRequest={(from, to, schedule) => console.log('Create trade:', { from, to, schedule })}
+              schedules={schedules.map(s => ({ ...s, month: 1, year: 2024 }))}
+            />
+          </TabsContent>
+
+          <TabsContent value="team">
+            <UserManagement 
+              users={users}
+              onAddUser={handleAddUser}
+              onUpdateUser={handleUpdateUser}
+              onDeleteUser={handleDeleteUser}
+              isAdmin={mockCurrentUser.isAdmin}
+            />
+          </TabsContent>
+
+          {mockCurrentUser.isAdmin && (
+            <TabsContent value="admin">
+              <AdminPanel 
+                users={users}
+                monthlySettings={monthlySettings}
+                onUpdateUserLimit={(id, limit) => handleUpdateUser(id, { monthlyShiftLimit: limit })}
+                onUpdatePublishStatus={(isPublished) => setMonthlySettings(prev => ({ ...prev, isPublished }))}
+                onGenerateShareLink={() => console.log('Generate share link')}
+                onSaveSettings={() => toast({ title: "Settings Saved", description: "Admin settings have been updated." })}
+              />
+            </TabsContent>
+          )}
+        </Tabs>
+      </div>
+
+      {/* Share Dialog */}
+      <Dialog open={shareDialogOpen} onOpenChange={setShareDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Share Schedule</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <p className="text-sm text-muted-foreground">
+              Share this link to give read-only access to the {currentMonth} schedule:
+            </p>
+            <div className="flex space-x-2">
+              <Input value={shareLink} readOnly className="font-mono text-sm" />
+              <Button onClick={copyShareLink} data-testid="button-copy-link">
+                Copy
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
