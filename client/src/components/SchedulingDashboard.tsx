@@ -8,6 +8,7 @@ import UserManagement from "./UserManagement";
 import ConfirmTradeDialog from "./ConfirmTradeDialog";
 import AdminPanel from "./AdminPanel";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { toast } from "@/hooks/use-toast";
 import { Share } from 'lucide-react';
@@ -199,7 +200,7 @@ export default function SchedulingDashboard() {
     month: selectedMonth,
     year: selectedYear,
     isPublished: false,
-    publicShareToken: null
+    publicShareToken: undefined
   });
 
   // Update local state when fetched settings change
@@ -208,6 +209,15 @@ export default function SchedulingDashboard() {
       setMonthlySettings(fetchedMonthlySettings);
     }
   }, [fetchedMonthlySettings]);
+
+  // Functions to handle trade approval/rejection
+  const handleApproveTrade = async (tradeId: string) => {
+    updateTradeMutation.mutate({ id: tradeId, status: 'approved' });
+  };
+
+  const handleRejectTrade = async (tradeId: string) => {
+    updateTradeMutation.mutate({ id: tradeId, status: 'rejected' });
+  };
 
   const handleMonthChange = (month: string) => {
     setCurrentMonth(month);
@@ -338,7 +348,7 @@ export default function SchedulingDashboard() {
     
     for (let day = 1; day <= daysInMonth; day++) {
       const rowY = TABLE_START_Y + HEADER_HEIGHT + ((day - 1) * ROW_HEIGHT);
-      const textY = rowY + (ROW_HEIGHT / 2) + 3; // Proper vertical centering
+      const textY = rowY + (ROW_HEIGHT / 2) + 1; // Better vertical centering
       
       // Row divider (light gray)
       if (day < daysInMonth) {
@@ -349,7 +359,7 @@ export default function SchedulingDashboard() {
       }
       
       // Day number
-      doc.setFontSize(Math.min(9, ROW_HEIGHT - 2));
+      doc.setFontSize(Math.min(11, ROW_HEIGHT));
       doc.setFont('helvetica', 'bold');
       doc.setTextColor(0, 0, 0);
       centerText(day.toString(), COL_DAY_CENTER, textY);
@@ -360,21 +370,21 @@ export default function SchedulingDashboard() {
         const color = getUserColor(mcpSchedule.userId, 'physician');
         doc.setTextColor(color.r, color.g, color.b);
         doc.setFont('helvetica', 'bold');
-        doc.setFontSize(Math.min(8, ROW_HEIGHT - 2));
-        centerText(mcpSchedule.userName, COL_MCP_CENTER, textY);
+        doc.setFontSize(Math.min(10, ROW_HEIGHT - 1));
+        centerText(mcpSchedule.userName, COL_MCP_CENTER, textY - 2);
         
         // Always include phone number for contact info
         const mcpUser = users.find((u: User) => u.id === mcpSchedule.userId);
-        if (mcpUser?.phone && ROW_HEIGHT > 10) {
+        if (mcpUser?.phone) {
           doc.setTextColor(100, 100, 100);
           doc.setFont('helvetica', 'normal');
-          doc.setFontSize(Math.min(6, ROW_HEIGHT - 4));
-          centerText(mcpUser.phone, COL_MCP_CENTER, textY + Math.min(4, ROW_HEIGHT - 6));
+          doc.setFontSize(Math.min(8, ROW_HEIGHT - 2));
+          centerText(mcpUser.phone, COL_MCP_CENTER, textY + 3);
         }
       } else {
         doc.setTextColor(150, 150, 150);
         doc.setFont('helvetica', 'italic');
-        doc.setFontSize(Math.min(7, ROW_HEIGHT - 3));
+        doc.setFontSize(Math.min(9, ROW_HEIGHT - 2));
         centerText('Available', COL_MCP_CENTER, textY);
       }
       
@@ -384,21 +394,21 @@ export default function SchedulingDashboard() {
         const color = getUserColor(learnerSchedule.userId, 'learner');
         doc.setTextColor(color.r, color.g, color.b);
         doc.setFont('helvetica', 'bold');
-        doc.setFontSize(Math.min(8, ROW_HEIGHT - 2));
-        centerText(learnerSchedule.userName, COL_LEARNER_CENTER, textY);
+        doc.setFontSize(Math.min(10, ROW_HEIGHT - 1));
+        centerText(learnerSchedule.userName, COL_LEARNER_CENTER, textY - 2);
         
         // Always include phone number for contact info
         const learnerUser = users.find((u: User) => u.id === learnerSchedule.userId);
-        if (learnerUser?.phone && ROW_HEIGHT > 10) {
+        if (learnerUser?.phone) {
           doc.setTextColor(100, 100, 100);
           doc.setFont('helvetica', 'normal');
-          doc.setFontSize(Math.min(6, ROW_HEIGHT - 4));
-          centerText(learnerUser.phone, COL_LEARNER_CENTER, textY + Math.min(4, ROW_HEIGHT - 6));
+          doc.setFontSize(Math.min(8, ROW_HEIGHT - 2));
+          centerText(learnerUser.phone, COL_LEARNER_CENTER, textY + 3);
         }
       } else {
         doc.setTextColor(150, 150, 150);
         doc.setFont('helvetica', 'italic');
-        doc.setFontSize(Math.min(7, ROW_HEIGHT - 3));
+        doc.setFontSize(Math.min(9, ROW_HEIGHT - 2));
         centerText('Available', COL_LEARNER_CENTER, textY);
       }
     }
@@ -752,7 +762,7 @@ export default function SchedulingDashboard() {
               </div>
               <ConfirmTradeDialog 
                 users={users as any}
-                schedules={schedules.map((s: any) => ({ ...s, month: 1, year: 2024 }))}
+                schedules={schedules.map((s: any) => ({ ...s, month: selectedMonth, year: selectedYear }))}
                 currentUserId={activeMcpId || ''}
                 onConfirmTrade={handleConfirmTrade}
               />
