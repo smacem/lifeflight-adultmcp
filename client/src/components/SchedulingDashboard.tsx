@@ -342,7 +342,7 @@ export default function SchedulingDashboard() {
         onExportPDF={handleExportPDF}
         onShare={handleShare}
         onSettings={handleSettings}
-        isAdmin={activeMcpId ? users.find(u => u.id === activeMcpId)?.role === 'physician' : false}
+        isAdmin={true}
       />
 
       <div className="container mx-auto px-6 py-6">
@@ -352,9 +352,7 @@ export default function SchedulingDashboard() {
             <TabsTrigger value="calendar" data-testid="tab-calendar">Calendar View</TabsTrigger>
             <TabsTrigger value="trades" data-testid="tab-trades">Shift Trades</TabsTrigger>
             <TabsTrigger value="team" data-testid="tab-team">Team</TabsTrigger>
-            {activeMcpId && users.find(u => u.id === activeMcpId)?.role === 'physician' && (
-              <TabsTrigger value="admin" data-testid="tab-admin">Admin</TabsTrigger>
-            )}
+            <TabsTrigger value="admin" data-testid="tab-admin">Admin</TabsTrigger>
           </TabsList>
 
           {/* Active User Selection - moved below tabs */}
@@ -433,12 +431,11 @@ export default function SchedulingDashboard() {
               onAddUser={handleAddUser}
               onUpdateUser={handleUpdateUser}
               onDeleteUser={handleDeleteUser}
-              isAdmin={activeMcpId ? users.find(u => u.id === activeMcpId)?.role === 'physician' : false}
+              isAdmin={true}
             />
           </TabsContent>
 
-          {activeMcpId && users.find(u => u.id === activeMcpId)?.role === 'physician' && (
-            <TabsContent value="admin">
+          <TabsContent value="admin">
               <AdminPanel 
                 users={users}
                 monthlySettings={monthlySettings}
@@ -448,7 +445,6 @@ export default function SchedulingDashboard() {
                 onSaveSettings={() => toast({ title: "Settings Saved", description: "Admin settings have been updated." })}
               />
             </TabsContent>
-          )}
         </Tabs>
       </div>
 
