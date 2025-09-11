@@ -137,9 +137,11 @@ export default function TableView({
                 <Badge className={`w-full justify-center ${getUserColor(mcpSchedule.userId, mcpSchedule.userRole)}`}>
                   {mcpSchedule.userName}
                 </Badge>
-                <div className="text-xs text-muted-foreground">
-                  {users.find(u => u.id === mcpSchedule.userId)?.phone || 'No phone'}
-                </div>
+                {!isPublicView && (
+                  <div className="text-xs text-muted-foreground">
+                    {users.find(u => u.id === mcpSchedule.userId)?.phone || 'No phone'}
+                  </div>
+                )}
               </div>
             ) : (
               <div className="text-muted-foreground italic">Available</div>
@@ -152,9 +154,11 @@ export default function TableView({
                 <Badge className={`w-full justify-center ${getUserColor(learnerSchedule.userId, learnerSchedule.userRole)}`}>
                   {learnerSchedule.userName}
                 </Badge>
-                <div className="text-xs text-muted-foreground">
-                  {users.find(u => u.id === learnerSchedule.userId)?.phone || 'No phone'}
-                </div>
+                {!isPublicView && (
+                  <div className="text-xs text-muted-foreground">
+                    {users.find(u => u.id === learnerSchedule.userId)?.phone || 'No phone'}
+                  </div>
+                )}
               </div>
             ) : (
               <div className="text-muted-foreground italic">Available</div>

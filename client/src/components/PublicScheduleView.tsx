@@ -183,8 +183,8 @@ export default function PublicScheduleView({
                       </Badge>
                     </div>
                     <div className="flex items-center space-x-2 text-sm text-muted-foreground">
-                      <Phone className="w-3 h-3" />
-                      <span>{physician.phone}</span>
+                      <User className="w-3 h-3" />
+                      <span>Contact via LifeFlight</span>
                     </div>
                   </div>
                 ))}
@@ -212,8 +212,8 @@ export default function PublicScheduleView({
                       </Badge>
                     </div>
                     <div className="flex items-center space-x-2 text-sm text-muted-foreground">
-                      <Phone className="w-3 h-3" />
-                      <span>{learner.phone}</span>
+                      <User className="w-3 h-3" />
+                      <span>Contact via LifeFlight</span>
                     </div>
                   </div>
                 ))}
