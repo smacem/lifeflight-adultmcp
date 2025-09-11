@@ -13,6 +13,7 @@ import { Label } from "@/components/ui/label";
 import { toast } from "@/hooks/use-toast";
 import { Share } from 'lucide-react';
 import jsPDF from 'jspdf';
+import logoImage from "@assets/IMG_4131_1757550683322.png";
 
 // No current user - users select themselves as active user for general access
 
@@ -91,45 +92,56 @@ export default function SchedulingDashboard() {
     const currentDate = new Date(selectedYear, selectedMonth - 1, 1);
     const daysInMonth = new Date(selectedYear, selectedMonth, 0).getDate();
     
-    // Set blue background
-    doc.setFillColor(173, 216, 230); // Light blue
+    // Set blue background (less aqua, more blue)
+    doc.setFillColor(135, 185, 215); // More blue, less aqua
     doc.rect(0, 0, 210, 297, 'F'); // A4 page size
     
     // Add EHS LifeFlight logo at top left
-    doc.setFontSize(20);
+    try {
+      doc.addImage(logoImage, 'PNG', 15, 10, 30, 20); // x, y, width, height
+    } catch (error) {
+      console.warn('Could not add logo image, using text fallback');
+      doc.setFontSize(20);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(0, 0, 0);
+      doc.text('EHS LifeFlight', 15, 20);
+    }
+    
+    // Add header below logo  
+    doc.setFontSize(16);
     doc.setFont('helvetica', 'bold');
     doc.setTextColor(0, 0, 0);
-    doc.text('EHS LifeFlight', 15, 20);
-    
-    // Add header below logo
-    doc.setFontSize(16);
-    doc.text('Adult MCP Self-Scheduler', 15, 30);
+    doc.text('Adult MCP Self-Scheduler', 50, 20);
     doc.setFontSize(12);
-    doc.text(currentMonth, 15, 40);
+    doc.setFont('helvetica', 'normal');
+    doc.text(currentMonth, 50, 30);
     
-    // Table setup with grid
+    // Table setup with dynamic scaling for full month
     const startY = 55;
-    const dayColX = 20;
-    const mcpColX = 60;
-    const learnerColX = 130;
-    const tableWidth = 170;
-    const rowHeight = 15;
+    const dayColX = 15;
+    const mcpColX = 45;
+    const learnerColX = 115;
+    const tableWidth = 180;
+    const maxTableHeight = 230; // Leave space for header and footer
+    const rowHeight = Math.min(10, Math.floor(maxTableHeight / (daysInMonth + 1))); // Dynamic row height
+    const actualTableHeight = (daysInMonth + 1) * rowHeight;
     
     // Draw light red table background
     doc.setFillColor(255, 235, 235); // Light red
-    doc.rect(15, startY - 5, tableWidth, (daysInMonth + 1) * rowHeight + 5, 'F');
+    doc.rect(15, startY - 5, tableWidth, actualTableHeight + 5, 'F');
     
     // Draw table border
     doc.setDrawColor(0, 0, 0);
     doc.setLineWidth(0.5);
-    doc.rect(15, startY - 5, tableWidth, (daysInMonth + 1) * rowHeight + 5);
+    doc.rect(15, startY - 5, tableWidth, actualTableHeight + 5);
     
     // Column separators
-    doc.line(45, startY - 5, 45, startY + (daysInMonth + 1) * rowHeight); // After Day column
-    doc.line(125, startY - 5, 125, startY + (daysInMonth + 1) * rowHeight); // After MCP column
+    doc.line(45, startY - 5, 45, startY + actualTableHeight); // After Day column
+    doc.line(125, startY - 5, 125, startY + actualTableHeight); // After MCP column
     
     // Table headers
-    doc.setFontSize(10);
+    const headerFontSize = Math.min(10, rowHeight * 0.8);
+    doc.setFontSize(headerFontSize);
     doc.setFont('helvetica', 'bold');
     doc.text('Day', dayColX, startY);
     doc.text('MCP (Physician)', mcpColX, startY);
@@ -162,14 +174,15 @@ export default function SchedulingDashboard() {
       if (day > 1) {
         doc.setDrawColor(200, 200, 200);
         doc.setLineWidth(0.2);
-        doc.line(15, currentY - 5, 185, currentY - 5);
+        doc.line(15, currentY - rowHeight/2, 195, currentY - rowHeight/2);
         doc.setDrawColor(0, 0, 0);
         doc.setLineWidth(0.5);
       }
       
       // Day number
       doc.setTextColor(0, 0, 0);
-      doc.setFontSize(10);
+      const textFontSize = Math.min(9, rowHeight * 0.7);
+      doc.setFontSize(textFontSize);
       doc.text(day.toString(), dayColX, currentY);
       
       // MCP column
@@ -180,12 +193,12 @@ export default function SchedulingDashboard() {
         doc.setFont('helvetica', 'bold');
         doc.text(mcpSchedule.userName, mcpColX, currentY);
         
-        if (mcpUser?.phone) {
+        if (mcpUser?.phone && rowHeight > 8) {
           doc.setTextColor(100, 100, 100);
           doc.setFont('helvetica', 'normal');
-          doc.setFontSize(8);
-          doc.text(mcpUser.phone, mcpColX, currentY + 4);
-          doc.setFontSize(10);
+          doc.setFontSize(Math.min(7, textFontSize * 0.8));
+          doc.text(mcpUser.phone, mcpColX, currentY + rowHeight/3);
+          doc.setFontSize(textFontSize);
         }
       } else {
         doc.setTextColor(150, 150, 150);
@@ -201,23 +214,23 @@ export default function SchedulingDashboard() {
         doc.setFont('helvetica', 'bold');
         doc.text(learnerSchedule.userName, learnerColX, currentY);
         
-        if (learnerUser?.phone) {
+        if (learnerUser?.phone && rowHeight > 8) {
           doc.setTextColor(100, 100, 100);
           doc.setFont('helvetica', 'normal');
-          doc.setFontSize(8);
-          doc.text(learnerUser.phone, learnerColX, currentY + 4);
-          doc.setFontSize(10);
+          doc.setFontSize(Math.min(7, textFontSize * 0.8));
+          doc.text(learnerUser.phone, learnerColX, currentY + rowHeight/3);
+          doc.setFontSize(textFontSize);
         }
       }
       // Note: No "Available" text for empty learner shifts as requested
       
       currentY += rowHeight;
       
-      // Add new page if needed
-      if (currentY > 270) {
+      // Add new page if needed (should not be needed with proper scaling)
+      if (currentY > 275) {
         doc.addPage();
         // Set background for new page
-        doc.setFillColor(230, 240, 250);
+        doc.setFillColor(135, 185, 215);
         doc.rect(0, 0, 210, 297, 'F');
         currentY = 30;
       }
