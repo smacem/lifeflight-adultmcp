@@ -7,6 +7,7 @@ import { format, getDaysInMonth, startOfMonth, getDay } from "date-fns";
 import logoImage from "@assets/IMG_4131_1757550683322.png";
 import TableView from "@/components/TableView";
 import CalendarGrid from "@/components/CalendarGrid";
+import { getUserColor } from '@/lib/colors';
 
 interface PublicUser {
   id: string;
@@ -96,8 +97,8 @@ export default function PublicScheduleView({
             {daySchedules.map((schedule) => (
               <Badge 
                 key={schedule.id}
-                variant={schedule.userRole === 'physician' ? 'default' : 'secondary'}
-                className="text-xs block w-full truncate"
+                variant="outline"
+                className={`text-xs block w-full truncate ${getUserColor(schedule.userId, schedule.userRole)}`}
               >
                 {schedule.userName}
               </Badge>

@@ -6,27 +6,7 @@ import { cn } from "@/lib/utils";
 import { getDaysInMonth } from "date-fns";
 
 // Helper function to get consistent color for each user
-const getUserColor = (userId: string, userRole: 'physician' | 'learner'): string => {
-  if (userRole === 'learner') {
-    return 'bg-secondary text-secondary-foreground'; // Keep learners as secondary (gray)
-  }
-  
-  // Color palette for physicians
-  const physicianColors = [
-    'bg-blue-100 text-blue-800 border-blue-200',
-    'bg-green-100 text-green-800 border-green-200', 
-    'bg-purple-100 text-purple-800 border-purple-200',
-    'bg-orange-100 text-orange-800 border-orange-200',
-    'bg-pink-100 text-pink-800 border-pink-200',
-    'bg-indigo-100 text-indigo-800 border-indigo-200',
-    'bg-teal-100 text-teal-800 border-teal-200',
-    'bg-cyan-100 text-cyan-800 border-cyan-200'
-  ];
-  
-  // Generate consistent index based on userId
-  const hash = userId.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
-  return physicianColors[hash % physicianColors.length];
-};
+import { getUserColor } from '@/lib/colors';
 
 interface TableUser {
   id: string;
