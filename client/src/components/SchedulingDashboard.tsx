@@ -395,8 +395,12 @@ export default function SchedulingDashboard() {
           doc.setFontSize(Math.min(6, ROW_HEIGHT - 4));
           centerText(learnerUser.phone, COL_LEARNER_CENTER, textY + Math.min(4, ROW_HEIGHT - 6));
         }
+      } else {
+        doc.setTextColor(150, 150, 150);
+        doc.setFont('helvetica', 'italic');
+        doc.setFontSize(Math.min(7, ROW_HEIGHT - 3));
+        centerText('Available', COL_LEARNER_CENTER, textY);
       }
-      // No "Available" text for learner column as requested
     }
     
     // Save PDF
