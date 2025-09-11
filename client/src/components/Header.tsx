@@ -65,18 +65,6 @@ export default function Header({
             Export PDF
           </Button>
 
-          {isAdmin && (
-            <Button 
-              variant="outline" 
-              size="sm" 
-              onClick={onSettings}
-              className="border-red-200 text-red-600"
-              data-testid="button-admin-settings"
-            >
-              <Settings className="w-4 h-4 mr-2" />
-              Admin
-            </Button>
-          )}
         </div>
       </div>
     </header>
