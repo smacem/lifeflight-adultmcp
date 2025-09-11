@@ -91,21 +91,21 @@ export default function SchedulingDashboard() {
     const currentDate = new Date(selectedYear, selectedMonth - 1, 1);
     const daysInMonth = new Date(selectedYear, selectedMonth, 0).getDate();
     
-    // Set light blue background
-    doc.setFillColor(230, 240, 250); // Light blue
+    // Set blue background
+    doc.setFillColor(173, 216, 230); // Light blue
     doc.rect(0, 0, 210, 297, 'F'); // A4 page size
     
-    // Add EHS LifeFlight logo (we'll use text for now since we don't have image embedding setup)
-    doc.setFontSize(18);
+    // Add EHS LifeFlight logo at top left
+    doc.setFontSize(20);
     doc.setFont('helvetica', 'bold');
     doc.setTextColor(0, 0, 0);
-    doc.text('EHS LifeFlight', 20, 20);
+    doc.text('EHS LifeFlight', 15, 20);
     
-    // Add header
+    // Add header below logo
     doc.setFontSize(16);
-    doc.text('Adult MCP Self-Scheduler', 20, 30);
+    doc.text('Adult MCP Self-Scheduler', 15, 30);
     doc.setFontSize(12);
-    doc.text(currentMonth, 20, 40);
+    doc.text(currentMonth, 15, 40);
     
     // Table setup with grid
     const startY = 55;
@@ -114,6 +114,10 @@ export default function SchedulingDashboard() {
     const learnerColX = 130;
     const tableWidth = 170;
     const rowHeight = 15;
+    
+    // Draw light red table background
+    doc.setFillColor(255, 235, 235); // Light red
+    doc.rect(15, startY - 5, tableWidth, (daysInMonth + 1) * rowHeight + 5, 'F');
     
     // Draw table border
     doc.setDrawColor(0, 0, 0);
