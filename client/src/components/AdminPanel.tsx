@@ -93,17 +93,13 @@ export default function AdminPanel({
 
     const events = userSchedules.map(schedule => {
       const eventDate = new Date(localSettings.year, localSettings.month - 1, schedule.day);
-      const startTime = new Date(eventDate);
-      startTime.setHours(7, 0, 0); // Default 7 AM start
-      const endTime = new Date(eventDate);
-      endTime.setHours(19, 0, 0); // Default 7 PM end (12-hour shift)
 
       return {
         title: `EHS LifeFlight ${user.role === 'physician' ? 'MCP' : 'Learner'} Shift`,
-        description: `${user.name} - ${user.role === 'physician' ? 'Physician' : 'Learner'} shift at EHS LifeFlight Adult MCP`,
+        description: `${user.name} - ${user.role === 'physician' ? 'Physician' : 'Learner'} 24-hour shift at EHS LifeFlight Adult MCP (7am-7am)`,
         location: 'EHS LifeFlight',
-        start: [startTime.getFullYear(), startTime.getMonth() + 1, startTime.getDate(), startTime.getHours(), startTime.getMinutes()] as [number, number, number, number, number],
-        end: [endTime.getFullYear(), endTime.getMonth() + 1, endTime.getDate(), endTime.getHours(), endTime.getMinutes()] as [number, number, number, number, number],
+        start: [eventDate.getFullYear(), eventDate.getMonth() + 1, eventDate.getDate()] as [number, number, number],
+        duration: { days: 1 },
         status: 'CONFIRMED' as const,
         busyStatus: 'BUSY' as const,
         organizer: { name: 'EHS LifeFlight Scheduling', email: 'scheduling@ehs.com' },
@@ -345,7 +341,7 @@ export default function AdminPanel({
             <div className="text-sm text-muted-foreground bg-muted/30 p-3 rounded-lg">
               <strong>📱 Compatible with:</strong> Google Calendar, Apple Calendar, Outlook, Android Calendar, and any calendar app that supports ICS files.
               <br />
-              <strong>⏰ Default times:</strong> Shifts are set for 7:00 AM - 7:00 PM (12-hour shifts). You can adjust times in your calendar after importing.
+              <strong>⏰ Shift duration:</strong> 24-hour shifts (7:00 AM - 7:00 AM) appear as all-day events in your calendar.
             </div>
           )}
         </CardContent>
