@@ -145,9 +145,10 @@ export default function PublicScheduleContainer() {
     const COL_MCP_CENTER = COL_MCP_X + (COL_MCP_WIDTH / 2);
     const COL_LEARNER_CENTER = COL_LEARNER_X + (COL_LEARNER_WIDTH / 2);
     
-    // Row setup
-    const HEADER_HEIGHT = 12;
-    const ROW_HEIGHT = Math.max(8, Math.floor(210 / (daysInMonth + 1))); // Smaller rows since no phone numbers
+    // Row setup - calculate to fit on one page
+    const HEADER_HEIGHT = 10;
+    const AVAILABLE_HEIGHT = 240; // Space available for table content
+    const ROW_HEIGHT = Math.max(6, Math.floor((AVAILABLE_HEIGHT - HEADER_HEIGHT) / daysInMonth)); // Dynamic row height
     const TABLE_HEIGHT = HEADER_HEIGHT + (daysInMonth * ROW_HEIGHT);
     
     // DRAW TABLE STRUCTURE
@@ -191,49 +192,60 @@ export default function PublicScheduleContainer() {
     
     // TABLE ROWS
     for (let day = 1; day <= daysInMonth; day++) {
-      const rowY = TABLE_START_Y + HEADER_HEIGHT + (day * ROW_HEIGHT);
-      const textY = rowY - (ROW_HEIGHT / 2) + 2; // Center vertically in row
+      const rowY = TABLE_START_Y + HEADER_HEIGHT + ((day - 1) * ROW_HEIGHT);
+      const textY = rowY + (ROW_HEIGHT / 2) + 3; // Proper vertical centering
       
       // Row divider (light gray)
-      if (day > 1) {
+      if (day < daysInMonth) {
         doc.setDrawColor(200, 200, 200);
         doc.setLineWidth(0.3);
-        doc.line(TABLE_LEFT, rowY - ROW_HEIGHT, TABLE_LEFT + TABLE_WIDTH, rowY - ROW_HEIGHT);
+        doc.line(TABLE_LEFT, rowY + ROW_HEIGHT, TABLE_LEFT + TABLE_WIDTH, rowY + ROW_HEIGHT);
         doc.setDrawColor(0, 0, 0);
       }
       
       // Day number
-      doc.setFontSize(9);
+      doc.setFontSize(Math.min(9, ROW_HEIGHT - 2));
       doc.setFont('helvetica', 'bold');
       doc.setTextColor(0, 0, 0);
       centerText(day.toString(), COL_DAY_CENTER, textY);
       
-      // MCP column
-      const mcpSchedule = publicData.schedules.find((s: any) => s.day === day && s.userRole === 'physician');
-      if (mcpSchedule) {
+      // MCP column - find physician schedule for this day
+      const mcpSchedule = publicData.schedules.find((s: any) => {
+        const user = publicData.users.find((u: any) => u.id === s.userId);
+        return s.day === day && user && user.role === 'physician';
+      });
+      const mcpUser = mcpSchedule ? publicData.users.find((u: any) => u.id === mcpSchedule.userId) : null;
+      
+      if (mcpSchedule && mcpUser) {
         const color = getUserColor(mcpSchedule.userId, 'physician');
         doc.setTextColor(color.r, color.g, color.b);
         doc.setFont('helvetica', 'bold');
-        centerText(mcpSchedule.userName, COL_MCP_CENTER, textY);
+        doc.setFontSize(Math.min(8, ROW_HEIGHT - 2));
+        centerText(mcpUser.name, COL_MCP_CENTER, textY);
       } else {
         doc.setTextColor(150, 150, 150);
         doc.setFont('helvetica', 'italic');
-        doc.setFontSize(8);
+        doc.setFontSize(Math.min(7, ROW_HEIGHT - 3));
         centerText('Available', COL_MCP_CENTER, textY);
       }
       
-      // Learner column
-      const learnerSchedule = publicData.schedules.find((s: any) => s.day === day && s.userRole === 'learner');
-      if (learnerSchedule) {
+      // Learner column - find learner schedule for this day
+      const learnerSchedule = publicData.schedules.find((s: any) => {
+        const user = publicData.users.find((u: any) => u.id === s.userId);
+        return s.day === day && user && user.role === 'learner';
+      });
+      const learnerUser = learnerSchedule ? publicData.users.find((u: any) => u.id === learnerSchedule.userId) : null;
+      
+      if (learnerSchedule && learnerUser) {
         const color = getUserColor(learnerSchedule.userId, 'learner');
         doc.setTextColor(color.r, color.g, color.b);
         doc.setFont('helvetica', 'bold');
-        doc.setFontSize(9);
-        centerText(learnerSchedule.userName, COL_LEARNER_CENTER, textY);
+        doc.setFontSize(Math.min(8, ROW_HEIGHT - 2));
+        centerText(learnerUser.name, COL_LEARNER_CENTER, textY);
       } else {
         doc.setTextColor(150, 150, 150);
         doc.setFont('helvetica', 'italic');
-        doc.setFontSize(8);
+        doc.setFontSize(Math.min(7, ROW_HEIGHT - 3));
         centerText('Available', COL_LEARNER_CENTER, textY);
       }
     }
@@ -256,7 +268,7 @@ export default function PublicScheduleContainer() {
         day: schedule.day,
         userId: schedule.userId,
         userName: publicData.users.find((u: any) => u.id === schedule.userId)?.name || 'Unknown',
-        userRole: publicData.users.find((u: any) => u.id === schedule.userId)?.role || 'physician'
+        userRole: (publicData.users.find((u: any) => u.id === schedule.userId)?.role === 'admin' ? 'physician' : publicData.users.find((u: any) => u.id === schedule.userId)?.role || 'physician') as 'physician' | 'learner'
       }))}
       users={publicData.users.map((user: any) => ({
         id: user.id,

@@ -268,9 +268,10 @@ export default function SchedulingDashboard() {
     const COL_MCP_CENTER = COL_MCP_X + (COL_MCP_WIDTH / 2);
     const COL_LEARNER_CENTER = COL_LEARNER_X + (COL_LEARNER_WIDTH / 2);
     
-    // Row setup
-    const HEADER_HEIGHT = 12;
-    const ROW_HEIGHT = Math.max(12, Math.floor(210 / (daysInMonth + 1))); // Ensure space for phone numbers
+    // Row setup - calculate to fit on one page
+    const HEADER_HEIGHT = 10;
+    const AVAILABLE_HEIGHT = 210; // Space available for table content
+    const ROW_HEIGHT = Math.max(6, Math.floor((AVAILABLE_HEIGHT - HEADER_HEIGHT) / daysInMonth)); // Dynamic row height
     const TABLE_HEIGHT = HEADER_HEIGHT + (daysInMonth * ROW_HEIGHT);
     
     // ===============================
@@ -336,19 +337,19 @@ export default function SchedulingDashboard() {
     // ===============================
     
     for (let day = 1; day <= daysInMonth; day++) {
-      const rowY = TABLE_START_Y + HEADER_HEIGHT + (day * ROW_HEIGHT);
-      const textY = rowY - (ROW_HEIGHT / 2) + 2; // Center vertically in row
+      const rowY = TABLE_START_Y + HEADER_HEIGHT + ((day - 1) * ROW_HEIGHT);
+      const textY = rowY + (ROW_HEIGHT / 2) + 3; // Proper vertical centering
       
       // Row divider (light gray)
-      if (day > 1) {
+      if (day < daysInMonth) {
         doc.setDrawColor(200, 200, 200);
         doc.setLineWidth(0.3);
-        doc.line(TABLE_LEFT, rowY - ROW_HEIGHT, TABLE_LEFT + TABLE_WIDTH, rowY - ROW_HEIGHT);
+        doc.line(TABLE_LEFT, rowY + ROW_HEIGHT, TABLE_LEFT + TABLE_WIDTH, rowY + ROW_HEIGHT);
         doc.setDrawColor(0, 0, 0);
       }
       
       // Day number
-      doc.setFontSize(9);
+      doc.setFontSize(Math.min(9, ROW_HEIGHT - 2));
       doc.setFont('helvetica', 'bold');
       doc.setTextColor(0, 0, 0);
       centerText(day.toString(), COL_DAY_CENTER, textY);
@@ -359,20 +360,21 @@ export default function SchedulingDashboard() {
         const color = getUserColor(mcpSchedule.userId, 'physician');
         doc.setTextColor(color.r, color.g, color.b);
         doc.setFont('helvetica', 'bold');
+        doc.setFontSize(Math.min(8, ROW_HEIGHT - 2));
         centerText(mcpSchedule.userName, COL_MCP_CENTER, textY);
         
         // Always include phone number for contact info
         const mcpUser = users.find((u: User) => u.id === mcpSchedule.userId);
-        if (mcpUser?.phone) {
+        if (mcpUser?.phone && ROW_HEIGHT > 10) {
           doc.setTextColor(100, 100, 100);
           doc.setFont('helvetica', 'normal');
-          doc.setFontSize(7);
-          centerText(mcpUser.phone, COL_MCP_CENTER, textY + 4);
+          doc.setFontSize(Math.min(6, ROW_HEIGHT - 4));
+          centerText(mcpUser.phone, COL_MCP_CENTER, textY + Math.min(4, ROW_HEIGHT - 6));
         }
       } else {
         doc.setTextColor(150, 150, 150);
         doc.setFont('helvetica', 'italic');
-        doc.setFontSize(8);
+        doc.setFontSize(Math.min(7, ROW_HEIGHT - 3));
         centerText('Available', COL_MCP_CENTER, textY);
       }
       
@@ -382,16 +384,16 @@ export default function SchedulingDashboard() {
         const color = getUserColor(learnerSchedule.userId, 'learner');
         doc.setTextColor(color.r, color.g, color.b);
         doc.setFont('helvetica', 'bold');
-        doc.setFontSize(9);
+        doc.setFontSize(Math.min(8, ROW_HEIGHT - 2));
         centerText(learnerSchedule.userName, COL_LEARNER_CENTER, textY);
         
         // Always include phone number for contact info
         const learnerUser = users.find((u: User) => u.id === learnerSchedule.userId);
-        if (learnerUser?.phone) {
+        if (learnerUser?.phone && ROW_HEIGHT > 10) {
           doc.setTextColor(100, 100, 100);
           doc.setFont('helvetica', 'normal');
-          doc.setFontSize(7);
-          centerText(learnerUser.phone, COL_LEARNER_CENTER, textY + 4);
+          doc.setFontSize(Math.min(6, ROW_HEIGHT - 4));
+          centerText(learnerUser.phone, COL_LEARNER_CENTER, textY + Math.min(4, ROW_HEIGHT - 6));
         }
       }
       // No "Available" text for learner column as requested
