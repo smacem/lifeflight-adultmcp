@@ -153,14 +153,10 @@ export default function SchedulingDashboard() {
     const learnerWidth = tableWidth - dayWidth - mcpWidth; // 70
     const learnerColCenter = learnerColX + (learnerWidth / 2);
     
-    // Headers with manual text centering - calculate left position for center alignment
-    const dayTextWidth = doc.getTextWidth('Day');
-    const mcpTextWidth = doc.getTextWidth('MCP (Physician)');
-    const learnerTextWidth = doc.getTextWidth('Learner');
-    
-    doc.text('Day', dayColCenter - (dayTextWidth / 2), startY);
-    doc.text('MCP (Physician)', mcpColCenter - (mcpTextWidth / 2), startY);
-    doc.text('Learner', learnerColCenter - (learnerTextWidth / 2), startY);
+    // Headers with proper jsPDF centering using both align and baseline anchors
+    doc.text('Day', dayColCenter, startY, { align: 'center', baseline: 'middle' });
+    doc.text('MCP (Physician)', mcpColCenter, startY, { align: 'center', baseline: 'middle' });
+    doc.text('Learner', learnerColCenter, startY, { align: 'center', baseline: 'middle' });
     
     // Draw header line
     doc.line(15, startY + 2, 195, startY + 2);
@@ -199,10 +195,9 @@ export default function SchedulingDashboard() {
       const textFontSize = Math.max(7, Math.min(9, rowHeight * 0.75));
       doc.setFontSize(textFontSize);
       doc.setFont('helvetica', 'bold');
-      const textY = currentY - (rowHeight * 0.5); // True center vertically in row
+      const centerY = currentY - (rowHeight * 0.5); // True center vertically in row
       const dayText = day.toString();
-      const dayNumWidth = doc.getTextWidth(dayText);
-      doc.text(dayText, dayColCenter - (dayNumWidth / 2), textY);
+      doc.text(dayText, dayColCenter, centerY, { align: 'center', baseline: 'middle' });
       
       // MCP column
       if (mcpSchedule) {
@@ -211,23 +206,21 @@ export default function SchedulingDashboard() {
         doc.setTextColor(color.r, color.g, color.b);
         doc.setFont('helvetica', 'bold');
         doc.setFontSize(textFontSize);
-        const mcpNameWidth = doc.getTextWidth(mcpSchedule.userName);
-        doc.text(mcpSchedule.userName, mcpColCenter - (mcpNameWidth / 2), textY);
+        doc.text(mcpSchedule.userName, mcpColCenter, centerY, { align: 'center', baseline: 'middle' });
         
         if (mcpUser?.phone && rowHeight > 7) {
           doc.setTextColor(100, 100, 100);
           doc.setFont('helvetica', 'normal');
           doc.setFontSize(Math.max(5, textFontSize * 0.7));
-          const mcpPhoneWidth = doc.getTextWidth(mcpUser.phone);
-          doc.text(mcpUser.phone, mcpColCenter - (mcpPhoneWidth / 2), textY + (rowHeight * 0.25));
+          const lineGap = rowHeight * 0.3;
+          doc.text(mcpUser.phone, mcpColCenter, centerY + lineGap, { align: 'center', baseline: 'middle' });
           doc.setFontSize(textFontSize);
         }
       } else {
         doc.setTextColor(150, 150, 150);
         doc.setFont('helvetica', 'italic');
         doc.setFontSize(textFontSize);
-        const availableWidth = doc.getTextWidth('Available');
-        doc.text('Available', mcpColCenter - (availableWidth / 2), textY);
+        doc.text('Available', mcpColCenter, centerY, { align: 'center', baseline: 'middle' });
       }
       
       // Learner column - only show if there's a learner scheduled (no "Available" text)
@@ -237,15 +230,14 @@ export default function SchedulingDashboard() {
         doc.setTextColor(color.r, color.g, color.b);
         doc.setFont('helvetica', 'bold');
         doc.setFontSize(textFontSize);
-        const learnerNameWidth = doc.getTextWidth(learnerSchedule.userName);
-        doc.text(learnerSchedule.userName, learnerColCenter - (learnerNameWidth / 2), textY);
+        doc.text(learnerSchedule.userName, learnerColCenter, centerY, { align: 'center', baseline: 'middle' });
         
         if (learnerUser?.phone && rowHeight > 7) {
           doc.setTextColor(100, 100, 100);
           doc.setFont('helvetica', 'normal');
           doc.setFontSize(Math.max(5, textFontSize * 0.7));
-          const learnerPhoneWidth = doc.getTextWidth(learnerUser.phone);
-          doc.text(learnerUser.phone, learnerColCenter - (learnerPhoneWidth / 2), textY + (rowHeight * 0.25));
+          const lineGap = rowHeight * 0.3;
+          doc.text(learnerUser.phone, learnerColCenter, centerY + lineGap, { align: 'center', baseline: 'middle' });
           doc.setFontSize(textFontSize);
         }
       }
