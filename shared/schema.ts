@@ -85,6 +85,8 @@ export const insertMonthlySettingsSchema = createInsertSchema(monthlySettings).o
 }).extend({
   month: z.number().int().min(1, "Month must be between 1 and 12").max(12, "Month must be between 1 and 12"),
   year: z.number().int().min(2020, "Year must be 2020 or later").max(2100, "Year must be 2100 or earlier"),
+  isPublished: z.boolean().optional(),
+  publicShareToken: z.string().optional(),
 });
 
 // API request validation schemas

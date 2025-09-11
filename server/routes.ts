@@ -5,6 +5,7 @@ import {
   insertUserSchema, 
   insertScheduleSchema, 
   insertShiftTradeSchema,
+  insertMonthlySettingsSchema,
   monthYearQuerySchema,
   tradeStatusUpdateSchema,
   uuidParamSchema
@@ -315,6 +316,61 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       console.error("Error updating shift trade:", error);
       res.status(500).json({ error: "Failed to update shift trade" });
+    }
+  });
+
+  // Monthly settings endpoints
+  app.get("/api/monthly-settings", async (req, res) => {
+    try {
+      const { month, year } = monthYearQuerySchema.parse(req.query);
+      const settings = await storage.getMonthlySettings(month, year);
+      res.json(settings);
+    } catch (error) {
+      if (error instanceof ZodError) {
+        return res.status(400).json({ 
+          error: "Invalid query parameters", 
+          details: error.errors.map(e => ({ field: e.path.join('.'), message: e.message }))
+        });
+      }
+      console.error("Error getting monthly settings:", error);
+      res.status(500).json({ error: "Failed to get monthly settings" });
+    }
+  });
+
+  app.put("/api/monthly-settings", async (req, res) => {
+    try {
+      const validatedData = insertMonthlySettingsSchema.parse(req.body);
+      const settings = await storage.updateMonthlySettings(validatedData.month, validatedData.year, validatedData);
+      res.json(settings);
+    } catch (error) {
+      if (error instanceof ZodError) {
+        return res.status(400).json({ 
+          error: "Validation failed", 
+          details: error.errors.map(e => ({ field: e.path.join('.'), message: e.message }))
+        });
+      }
+      console.error("Error updating monthly settings:", error);
+      res.status(500).json({ error: "Failed to update monthly settings" });
+    }
+  });
+
+  // Public schedule endpoint
+  app.get("/api/public/:token", async (req, res) => {
+    try {
+      const token = req.params.token;
+      if (!token) {
+        return res.status(400).json({ error: "Token is required" });
+      }
+
+      const publicData = await storage.getPublicScheduleByToken(token);
+      if (!publicData) {
+        return res.status(404).json({ error: "Schedule not found or not published" });
+      }
+
+      res.json(publicData);
+    } catch (error) {
+      console.error("Error getting public schedule:", error);
+      res.status(500).json({ error: "Failed to get public schedule" });
     }
   });
 

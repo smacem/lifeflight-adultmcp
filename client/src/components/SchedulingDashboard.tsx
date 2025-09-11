@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import Header from "./Header";
@@ -139,12 +139,48 @@ export default function SchedulingDashboard() {
     },
   });
   
-  const [monthlySettings, setMonthlySettings] = useState({
-    month: 1,
-    year: 2024,
-    isPublished: true,
-    publicShareToken: 'abc123def456'
+  // Fetch monthly settings for current month
+  const { data: fetchedMonthlySettings } = useQuery({
+    queryKey: ['/api/monthly-settings', selectedMonth, selectedYear],
+    queryFn: async () => {
+      const response = await apiRequest('GET', `/api/monthly-settings?month=${selectedMonth}&year=${selectedYear}`);
+      return response.json();
+    },
   });
+
+  // Monthly settings mutation
+  const updateMonthlySettingsMutation = useMutation({
+    mutationFn: async (settings: { month: number; year: number; isPublished?: boolean; publicShareToken?: string }) => {
+      const response = await apiRequest('PUT', '/api/monthly-settings', settings);
+      return response.json();
+    },
+    onSuccess: (data) => {
+      setMonthlySettings(data);
+      queryClient.invalidateQueries({ queryKey: ['/api/monthly-settings'] });
+      
+      // Show the new link to user if a token was generated
+      if (data.publicShareToken) {
+        const newShareLink = `${window.location.origin}/public/${data.publicShareToken}`;
+        setShareLink(newShareLink);
+        setShareDialogOpen(true);
+      }
+    },
+  });
+  
+  // Use fetched settings or fallback to defaults
+  const [monthlySettings, setMonthlySettings] = useState({
+    month: selectedMonth,
+    year: selectedYear,
+    isPublished: false,
+    publicShareToken: null
+  });
+
+  // Update local state when fetched settings change
+  useEffect(() => {
+    if (fetchedMonthlySettings) {
+      setMonthlySettings(fetchedMonthlySettings);
+    }
+  }, [fetchedMonthlySettings]);
 
   const handleMonthChange = (month: string) => {
     setCurrentMonth(month);
@@ -352,6 +388,32 @@ export default function SchedulingDashboard() {
 
   const handleSettings = () => {
     console.log('Opening admin settings');
+  };
+
+  const handleGenerateShareLink = async () => {
+    try {
+      // Generate a new random token
+      const newToken = Math.random().toString(36).substr(2, 16) + Math.random().toString(36).substr(2, 16);
+      
+      // Update monthly settings with new token
+      await updateMonthlySettingsMutation.mutateAsync({
+        month: selectedMonth,
+        year: selectedYear,
+        isPublished: monthlySettings.isPublished,
+        publicShareToken: newToken,
+      });
+
+      toast({
+        title: "New Share Link Generated",
+        description: "A new secure share link has been created for stakeholders.",
+      });
+    } catch (error: any) {
+      toast({
+        title: "Error Generating Link",
+        description: error.message || "Failed to generate new share link. Please try again.",
+        variant: "destructive"
+      });
+    }
   };
 
   const handleActiveMcpChange = (mcpId: string) => {
@@ -680,7 +742,7 @@ export default function SchedulingDashboard() {
                 monthlySettings={monthlySettings}
                 onUpdateUserLimit={(id, limit) => handleUpdateUser(id, { monthlyShiftLimit: limit })}
                 onUpdatePublishStatus={(isPublished) => setMonthlySettings(prev => ({ ...prev, isPublished }))}
-                onGenerateShareLink={() => console.log('Generate share link')}
+                onGenerateShareLink={handleGenerateShareLink}
                 onSaveSettings={() => toast({ title: "Settings Saved", description: "Admin settings have been updated." })}
               />
             </TabsContent>

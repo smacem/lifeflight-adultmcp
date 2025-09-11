@@ -1,4 +1,4 @@
-import { type User, type InsertUser, type Schedule, type InsertSchedule, type ShiftTrade, type InsertShiftTrade } from "@shared/schema";
+import { type User, type InsertUser, type Schedule, type InsertSchedule, type ShiftTrade, type InsertShiftTrade, type MonthlySettings, type InsertMonthlySettings } from "@shared/schema";
 import { randomUUID } from "crypto";
 import { sql } from "drizzle-orm";
 
@@ -27,6 +27,11 @@ export interface IStorage {
   getPendingTradesForSchedule(scheduleId: string): Promise<ShiftTrade[]>;
   updateShiftTrade(id: string, status: 'approved' | 'rejected' | 'cancelled'): Promise<ShiftTrade | undefined>;
   executeShiftTrade(tradeId: string): Promise<void>;
+  
+  // Monthly settings management
+  getMonthlySettings(month: number, year: number): Promise<MonthlySettings | undefined>;
+  updateMonthlySettings(month: number, year: number, updates: Partial<InsertMonthlySettings>): Promise<MonthlySettings>;
+  getPublicScheduleByToken(token: string): Promise<{ schedules: Schedule[], users: User[], settings: MonthlySettings } | undefined>;
 }
 
 export class MemStorage implements IStorage {
@@ -225,11 +230,35 @@ export class MemStorage implements IStorage {
     this.shiftTrades.set(id, updatedTrade);
     return updatedTrade;
   }
+
+  // Monthly settings methods - placeholder for MemStorage
+  async getMonthlySettings(month: number, year: number): Promise<MonthlySettings | undefined> {
+    // MemStorage doesn't persist monthly settings
+    return undefined;
+  }
+
+  async updateMonthlySettings(month: number, year: number, updates: Partial<InsertMonthlySettings>): Promise<MonthlySettings> {
+    // For MemStorage, return a basic mock settings object
+    const id = randomUUID();
+    return {
+      id,
+      month,
+      year,
+      isPublished: updates.isPublished ?? false,
+      publicShareToken: updates.publicShareToken ?? null,
+      createdAt: new Date(),
+    };
+  }
+
+  async getPublicScheduleByToken(token: string): Promise<{ schedules: Schedule[], users: User[], settings: MonthlySettings } | undefined> {
+    // MemStorage doesn't support public sharing
+    return undefined;
+  }
 }
 
 import { db } from "./db";
-import { eq, and } from "drizzle-orm";
-import { users, schedules, shiftTrades } from "@shared/schema";
+import { eq, and, inArray } from "drizzle-orm";
+import { users, schedules, shiftTrades, monthlySettings } from "@shared/schema";
 
 export class DatabaseStorage implements IStorage {
   async getUser(id: string): Promise<User | undefined> {
@@ -343,7 +372,7 @@ export class DatabaseStorage implements IStorage {
       const scheduledUsers = await db
         .select()
         .from(users)
-        .where(sql`${users.id} = ANY(${scheduledUserIds})`);
+        .where(inArray(users.id, scheduledUserIds));
 
       // Check role-based constraints
       if (user.role === 'physician') {
@@ -427,6 +456,62 @@ export class DatabaseStorage implements IStorage {
       .where(eq(shiftTrades.id, id))
       .returning();
     return trade || undefined;
+  }
+
+  // Monthly settings management
+  async getMonthlySettings(month: number, year: number): Promise<MonthlySettings | undefined> {
+    const [settings] = await db
+      .select()
+      .from(monthlySettings)
+      .where(and(eq(monthlySettings.month, month), eq(monthlySettings.year, year)));
+    return settings || undefined;
+  }
+
+  async updateMonthlySettings(month: number, year: number, updates: Partial<InsertMonthlySettings>): Promise<MonthlySettings> {
+    // First try to find existing settings
+    const existing = await this.getMonthlySettings(month, year);
+    
+    if (existing) {
+      // Update existing settings
+      const [updated] = await db
+        .update(monthlySettings)
+        .set(updates)
+        .where(and(eq(monthlySettings.month, month), eq(monthlySettings.year, year)))
+        .returning();
+      return updated;
+    } else {
+      // Create new settings
+      const [created] = await db
+        .insert(monthlySettings)
+        .values({
+          month,
+          year,
+          isPublished: updates.isPublished ?? false,
+          publicShareToken: updates.publicShareToken ?? null,
+        })
+        .returning();
+      return created;
+    }
+  }
+
+  async getPublicScheduleByToken(token: string): Promise<{ schedules: Schedule[], users: User[], settings: MonthlySettings } | undefined> {
+    // Find the monthly settings with this token
+    const [settings] = await db
+      .select()
+      .from(monthlySettings)
+      .where(eq(monthlySettings.publicShareToken, token));
+      
+    if (!settings || !settings.isPublished) {
+      return undefined;
+    }
+
+    // Get schedules and users for this month/year
+    const [schedules, allUsers] = await Promise.all([
+      this.getSchedulesForMonth(settings.month, settings.year),
+      this.getAllUsers()
+    ]);
+
+    return { schedules, users: allUsers, settings };
   }
 }
 

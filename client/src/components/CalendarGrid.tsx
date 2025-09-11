@@ -100,6 +100,10 @@ export default function CalendarGrid({
     const user = users.find(u => u.id === userId);
     if (!user) return false;
     
+    // Check if day is already claimed by someone of the SAME role
+    const existingSameRole = schedules.find(s => s.day === day && s.userRole === user.role);
+    if (existingSameRole && existingSameRole.userId !== userId) return false;
+    
     const userCurrentSchedules = schedules.filter(s => s.userId === userId).length;
     return userCurrentSchedules < user.monthlyShiftLimit && !isUserScheduled(day, userId);
   };
