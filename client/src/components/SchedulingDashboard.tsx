@@ -89,26 +89,28 @@ export default function SchedulingDashboard() {
 
   const handleExportPDF = () => {
     const doc = new jsPDF();
-    const currentDate = new Date(selectedYear, selectedMonth - 1, 1);
     const daysInMonth = new Date(selectedYear, selectedMonth, 0).getDate();
     
-    // Set blue background (less aqua, more blue)
-    doc.setFillColor(135, 185, 215); // More blue, less aqua
-    doc.rect(0, 0, 210, 297, 'F'); // A4 page size
+    // ===============================
+    // COMPLETE PDF REBUILD - CLEAN START
+    // ===============================
     
-    // Add EHS LifeFlight logo at top left
+    // Page background - blue
+    doc.setFillColor(135, 185, 215);
+    doc.rect(0, 0, 210, 297, 'F');
+    
+    // Logo
     try {
-      doc.addImage(logoImage, 'PNG', 15, 10, 30, 20); // x, y, width, height
-    } catch (error) {
-      console.warn('Could not add logo image, using text fallback');
-      doc.setFontSize(20);
+      doc.addImage(logoImage, 'PNG', 15, 10, 30, 20);
+    } catch {
+      doc.setFontSize(14);
       doc.setFont('helvetica', 'bold');
       doc.setTextColor(0, 0, 0);
       doc.text('EHS LifeFlight', 15, 20);
     }
     
-    // Add header below logo  
-    doc.setFontSize(16);
+    // Title and subtitle
+    doc.setFontSize(18);
     doc.setFont('helvetica', 'bold');
     doc.setTextColor(0, 0, 0);
     doc.text('Adult MCP Schedule', 50, 20);
@@ -116,165 +118,164 @@ export default function SchedulingDashboard() {
     doc.setFont('helvetica', 'normal');
     doc.text(currentMonth, 50, 30);
     
-    // Table setup with dynamic scaling for full month
-    const startY = 55;
-    const dayColX = 15;
-    const dayWidth = 30;
-    const mcpWidth = 80;
-    const mcpColX = dayColX + dayWidth; // 45
-    const learnerColX = mcpColX + mcpWidth; // 125
-    const tableWidth = 180;
-    const maxTableHeight = 220; // Leave space for header and footer  
-    const rowHeight = Math.max(6, Math.min(8, Math.floor(maxTableHeight / (daysInMonth + 1)))); // More aggressive scaling for single page
-    const actualTableHeight = (daysInMonth + 1) * rowHeight;
+    // ===============================
+    // TABLE LAYOUT - CLEAN DEFINITIONS
+    // ===============================
     
-    // Draw light red table background
-    doc.setFillColor(255, 235, 235); // Light red
-    doc.rect(15, startY - 5, tableWidth, actualTableHeight + 5, 'F');
+    const TABLE_START_Y = 50;
+    const TABLE_LEFT = 15;
+    const TABLE_WIDTH = 180;
     
-    // Draw table border
+    // Column definitions
+    const COL_DAY_WIDTH = 30;
+    const COL_MCP_WIDTH = 90;
+    const COL_LEARNER_WIDTH = 60;
+    
+    // Column positions (left edges)
+    const COL_DAY_X = TABLE_LEFT;
+    const COL_MCP_X = COL_DAY_X + COL_DAY_WIDTH;
+    const COL_LEARNER_X = COL_MCP_X + COL_MCP_WIDTH;
+    
+    // Column centers (for text centering)
+    const COL_DAY_CENTER = COL_DAY_X + (COL_DAY_WIDTH / 2);
+    const COL_MCP_CENTER = COL_MCP_X + (COL_MCP_WIDTH / 2);
+    const COL_LEARNER_CENTER = COL_LEARNER_X + (COL_LEARNER_WIDTH / 2);
+    
+    // Row setup
+    const HEADER_HEIGHT = 12;
+    const ROW_HEIGHT = Math.max(7, Math.floor(210 / (daysInMonth + 1))); // Fit on one page
+    const TABLE_HEIGHT = HEADER_HEIGHT + (daysInMonth * ROW_HEIGHT);
+    
+    // ===============================
+    // DRAW TABLE STRUCTURE
+    // ===============================
+    
+    // Table background
+    doc.setFillColor(255, 235, 235);
+    doc.rect(TABLE_LEFT, TABLE_START_Y, TABLE_WIDTH, TABLE_HEIGHT, 'F');
+    
+    // Table border
     doc.setDrawColor(0, 0, 0);
-    doc.setLineWidth(0.5);
-    doc.rect(15, startY - 5, tableWidth, actualTableHeight + 5);
+    doc.setLineWidth(1);
+    doc.rect(TABLE_LEFT, TABLE_START_Y, TABLE_WIDTH, TABLE_HEIGHT);
     
-    // Column separators
-    doc.line(mcpColX, startY - 5, mcpColX, startY + actualTableHeight); // After Day column
-    doc.line(learnerColX, startY - 5, learnerColX, startY + actualTableHeight); // After MCP column
+    // Column dividers
+    doc.line(COL_MCP_X, TABLE_START_Y, COL_MCP_X, TABLE_START_Y + TABLE_HEIGHT);
+    doc.line(COL_LEARNER_X, TABLE_START_Y, COL_LEARNER_X, TABLE_START_Y + TABLE_HEIGHT);
     
-    // Table headers - center horizontally in each column
-    const headerFontSize = Math.max(8, Math.min(10, rowHeight * 0.9));
-    doc.setFontSize(headerFontSize);
+    // Header divider
+    doc.line(TABLE_LEFT, TABLE_START_Y + HEADER_HEIGHT, TABLE_LEFT + TABLE_WIDTH, TABLE_START_Y + HEADER_HEIGHT);
+    
+    // ===============================
+    // HELPER FUNCTION: CENTER TEXT
+    // ===============================
+    
+    const centerText = (text: string, centerX: number, y: number) => {
+      const textWidth = doc.getTextWidth(text);
+      const leftX = centerX - (textWidth / 2);
+      doc.text(text, leftX, y);
+    };
+    
+    // ===============================
+    // HEADERS
+    // ===============================
+    
+    const HEADER_Y = TABLE_START_Y + 8;
+    doc.setFontSize(10);
     doc.setFont('helvetica', 'bold');
     doc.setTextColor(0, 0, 0);
     
-    // Calculate column centers for text alignment - manual centering approach
-    const dayColCenter = dayColX + (dayWidth / 2);
-    const mcpColCenter = mcpColX + (mcpWidth / 2);
-    const learnerWidth = tableWidth - dayWidth - mcpWidth; // 70
-    const learnerColCenter = learnerColX + (learnerWidth / 2);
+    centerText('Day', COL_DAY_CENTER, HEADER_Y);
+    centerText('MCP (Physician)', COL_MCP_CENTER, HEADER_Y);
+    centerText('Learner', COL_LEARNER_CENTER, HEADER_Y);
     
-    // Headers with manual precise centering - no jsPDF options
-    doc.setFontSize(headerFontSize);
-    doc.setFont('helvetica', 'bold');
+    // ===============================
+    // USER COLORS
+    // ===============================
     
-    // FINAL FIX: Manual centering without align option (jsPDF align option doesn't work)
-    const dayHeaderWidth = doc.getTextWidth('Day');
-    const mcpHeaderWidth = doc.getTextWidth('MCP (Physician)');
-    const learnerHeaderWidth = doc.getTextWidth('Learner');
-    
-    doc.text('Day', 30 - (dayHeaderWidth / 2), startY);
-    doc.text('MCP (Physician)', 85 - (mcpHeaderWidth / 2), startY);
-    doc.text('Learner', 160 - (learnerHeaderWidth / 2), startY);
-    
-    // Draw header line
-    doc.line(15, startY + 2, 195, startY + 2);
-    
-    // Helper function to get user color (similar to TableView)
-    const getUserColor = (userId: string, userRole: string) => {
-      if (userRole === 'physician') {
+    const getUserColor = (userId: string, role: string) => {
+      if (role === 'physician') {
         const user = users.find(u => u.id === userId);
-        if (user?.name.includes('Sarah')) return { r: 34, g: 197, b: 94 }; // Green
-        if (user?.name.includes('Michael')) return { r: 139, g: 69, b: 19 }; // Brown
-        if (user?.name.includes('Emily')) return { r: 99, g: 102, b: 241 }; // Blue
-        return { r: 0, g: 0, b: 0 }; // Default black
+        if (user?.name.includes('Sarah')) return { r: 34, g: 197, b: 94 };
+        if (user?.name.includes('Michael')) return { r: 139, g: 69, b: 19 };
+        if (user?.name.includes('Emily')) return { r: 99, g: 102, b: 241 };
+        return { r: 0, g: 0, b: 0 };
       }
-      return { r: 107, g: 114, b: 128 }; // Gray for learners
+      return { r: 107, g: 114, b: 128 };
     };
-
-    // Table data
-    doc.setFont('helvetica', 'normal');
-    let currentY = startY + rowHeight;
+    
+    // ===============================
+    // TABLE ROWS
+    // ===============================
     
     for (let day = 1; day <= daysInMonth; day++) {
-      const mcpSchedule = schedules.find(s => s.day === day && s.userRole === 'physician');
-      const learnerSchedule = schedules.find(s => s.day === day && s.userRole === 'learner');
+      const rowY = TABLE_START_Y + HEADER_HEIGHT + (day * ROW_HEIGHT);
+      const textY = rowY - (ROW_HEIGHT / 2) + 2; // Center vertically in row
       
-      // Draw row separator
+      // Row divider (light gray)
       if (day > 1) {
         doc.setDrawColor(200, 200, 200);
-        doc.setLineWidth(0.2);
-        doc.line(15, currentY - rowHeight/2, 195, currentY - rowHeight/2);
+        doc.setLineWidth(0.3);
+        doc.line(TABLE_LEFT, rowY - ROW_HEIGHT, TABLE_LEFT + TABLE_WIDTH, rowY - ROW_HEIGHT);
         doc.setDrawColor(0, 0, 0);
-        doc.setLineWidth(0.5);
       }
       
-      // Day number - center in cell
-      doc.setTextColor(0, 0, 0);
-      const textFontSize = Math.max(7, Math.min(9, rowHeight * 0.75));
-      doc.setFontSize(textFontSize);
+      // Day number
+      doc.setFontSize(9);
       doc.setFont('helvetica', 'bold');
-      // Calculate precise text positioning
-      const textY = currentY - (rowHeight * 0.3); // Adjust for better visual centering
-      const dayText = day.toString();
-      const dayTextWidth = doc.getTextWidth(dayText);
-      doc.text(dayText, 30 - (dayTextWidth / 2), textY);
+      doc.setTextColor(0, 0, 0);
+      centerText(day.toString(), COL_DAY_CENTER, textY);
       
       // MCP column
+      const mcpSchedule = schedules.find(s => s.day === day && s.userRole === 'physician');
       if (mcpSchedule) {
-        const mcpUser = users.find(u => u.id === mcpSchedule.userId);
         const color = getUserColor(mcpSchedule.userId, 'physician');
         doc.setTextColor(color.r, color.g, color.b);
         doc.setFont('helvetica', 'bold');
-        doc.setFontSize(textFontSize);
-        const mcpNameWidth = doc.getTextWidth(mcpSchedule.userName);
-        doc.text(mcpSchedule.userName, 85 - (mcpNameWidth / 2), textY);
+        centerText(mcpSchedule.userName, COL_MCP_CENTER, textY);
         
-        if (mcpUser?.phone && rowHeight > 7) {
+        // Phone number if space allows
+        const mcpUser = users.find(u => u.id === mcpSchedule.userId);
+        if (mcpUser?.phone && ROW_HEIGHT > 10) {
           doc.setTextColor(100, 100, 100);
           doc.setFont('helvetica', 'normal');
-          const phoneFontSize = Math.max(5, textFontSize * 0.7);
-          doc.setFontSize(phoneFontSize);
-          const mcpPhoneWidth = doc.getTextWidth(mcpUser.phone);
-          doc.text(mcpUser.phone, 85 - (mcpPhoneWidth / 2), textY + (rowHeight * 0.25));
-          doc.setFontSize(textFontSize);
+          doc.setFontSize(7);
+          centerText(mcpUser.phone, COL_MCP_CENTER, textY + 4);
         }
       } else {
         doc.setTextColor(150, 150, 150);
         doc.setFont('helvetica', 'italic');
-        doc.setFontSize(textFontSize);
-        const availableWidth = doc.getTextWidth('Available');
-        doc.text('Available', 85 - (availableWidth / 2), textY);
+        doc.setFontSize(8);
+        centerText('Available', COL_MCP_CENTER, textY);
       }
       
-      // Learner column - only show if there's a learner scheduled (no "Available" text)
+      // Learner column
+      const learnerSchedule = schedules.find(s => s.day === day && s.userRole === 'learner');
       if (learnerSchedule) {
-        const learnerUser = users.find(u => u.id === learnerSchedule.userId);
         const color = getUserColor(learnerSchedule.userId, 'learner');
         doc.setTextColor(color.r, color.g, color.b);
         doc.setFont('helvetica', 'bold');
-        doc.setFontSize(textFontSize);
-        const learnerNameWidth = doc.getTextWidth(learnerSchedule.userName);
-        doc.text(learnerSchedule.userName, 160 - (learnerNameWidth / 2), textY);
+        doc.setFontSize(9);
+        centerText(learnerSchedule.userName, COL_LEARNER_CENTER, textY);
         
-        if (learnerUser?.phone && rowHeight > 7) {
+        // Phone number if space allows
+        const learnerUser = users.find(u => u.id === learnerSchedule.userId);
+        if (learnerUser?.phone && ROW_HEIGHT > 10) {
           doc.setTextColor(100, 100, 100);
           doc.setFont('helvetica', 'normal');
-          const phoneFontSize = Math.max(5, textFontSize * 0.7);
-          doc.setFontSize(phoneFontSize);
-          const learnerPhoneWidth = doc.getTextWidth(learnerUser.phone);
-          doc.text(learnerUser.phone, 160 - (learnerPhoneWidth / 2), textY + (rowHeight * 0.25));
-          doc.setFontSize(textFontSize);
+          doc.setFontSize(7);
+          centerText(learnerUser.phone, COL_LEARNER_CENTER, textY + 4);
         }
       }
-      // Note: No "Available" text for empty learner shifts as requested
-      
-      currentY += rowHeight;
-      
-      // Add new page if needed (should not be needed with proper scaling)
-      if (currentY > 275) {
-        doc.addPage();
-        // Set background for new page
-        doc.setFillColor(135, 185, 215);
-        doc.rect(0, 0, 210, 297, 'F');
-        currentY = 30;
-      }
+      // No "Available" text for learner column as requested
     }
     
+    // Save PDF
     doc.save(`EHS-LifeFlight-Schedule-${currentMonth.replace(' ', '-')}.pdf`);
     
     toast({
       title: "PDF Generated",
-      description: `Table-formatted schedule for ${currentMonth} has been exported to PDF.`,
+      description: `Adult MCP Schedule for ${currentMonth} exported successfully.`,
     });
   };
 
