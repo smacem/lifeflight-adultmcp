@@ -53,7 +53,17 @@ const mockTradeRequests = [
 ];
 
 export default function SchedulingDashboard() {
-  const [currentMonth, setCurrentMonth] = useState("January 2024");
+  // Initialize with current month
+  const getCurrentMonth = () => {
+    const now = new Date();
+    const monthNames = [
+      'January', 'February', 'March', 'April', 'May', 'June',
+      'July', 'August', 'September', 'October', 'November', 'December'
+    ];
+    return `${monthNames[now.getMonth()]} ${now.getFullYear()}`;
+  };
+
+  const [currentMonth, setCurrentMonth] = useState(getCurrentMonth());
   const [shareDialogOpen, setShareDialogOpen] = useState(false);
   const [shareLink, setShareLink] = useState("");
   const [users, setUsers] = useState(mockUsers);
@@ -514,13 +524,27 @@ export default function SchedulingDashboard() {
                 className="px-3 py-2 border border-input rounded-md bg-red-50 text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
                 data-testid="select-month"
               >
-                {[
-                  "January 2024", "February 2024", "March 2024", "April 2024",
-                  "May 2024", "June 2024", "July 2024", "August 2024",
-                  "September 2024", "October 2024", "November 2024", "December 2024"
-                ].map(month => (
-                  <option key={month} value={month}>{month}</option>
-                ))}
+                {(() => {
+                  // Generate dynamic month list: current month + prior 2 months + next 6 months
+                  const months = [];
+                  const now = new Date();
+                  const monthNames = [
+                    'January', 'February', 'March', 'April', 'May', 'June',
+                    'July', 'August', 'September', 'October', 'November', 'December'
+                  ];
+                  
+                  // Start from 2 months ago
+                  for (let i = -2; i <= 6; i++) {
+                    const targetDate = new Date(now.getFullYear(), now.getMonth() + i, 1);
+                    const monthName = monthNames[targetDate.getMonth()];
+                    const year = targetDate.getFullYear();
+                    months.push(`${monthName} ${year}`);
+                  }
+                  
+                  return months.map(month => (
+                    <option key={month} value={month}>{month}</option>
+                  ));
+                })()}
               </select>
             </div>
           </div>
