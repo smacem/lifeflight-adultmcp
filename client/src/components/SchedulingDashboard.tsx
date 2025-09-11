@@ -77,16 +77,86 @@ export default function SchedulingDashboard() {
   };
 
   const handleExportPDF = () => {
-    // TODO: remove mock functionality
     const doc = new jsPDF();
+    const currentDate = new Date(2024, 0, 1); // January 2024
+    const daysInMonth = new Date(2024, 1, 0).getDate(); // Get days in January
+    
+    // Add header
+    doc.setFontSize(16);
     doc.text('EHS LifeFlight Adult MCP Schedule', 20, 20);
-    doc.text(`${currentMonth}`, 20, 40);
-    doc.text('Schedule will be generated here...', 20, 60);
+    doc.setFontSize(12);
+    doc.text(currentMonth, 20, 35);
+    
+    // Table headers
+    const startY = 50;
+    const dayColX = 20;
+    const mcpColX = 50;
+    const learnerColX = 120;
+    
+    doc.setFontSize(10);
+    doc.setFont(undefined, 'bold');
+    doc.text('Day', dayColX, startY);
+    doc.text('MCP (Physician)', mcpColX, startY);
+    doc.text('Learner', learnerColX, startY);
+    
+    // Draw header line
+    doc.line(15, startY + 2, 190, startY + 2);
+    
+    // Table data
+    doc.setFont(undefined, 'normal');
+    let currentY = startY + 10;
+    
+    for (let day = 1; day <= daysInMonth; day++) {
+      const mcpSchedule = schedules.find(s => s.day === day && s.userRole === 'physician');
+      const learnerSchedule = schedules.find(s => s.day === day && s.userRole === 'learner');
+      
+      // Day number
+      doc.text(day.toString(), dayColX, currentY);
+      
+      // MCP column
+      if (mcpSchedule) {
+        const mcpUser = users.find(u => u.id === mcpSchedule.userId);
+        doc.text(mcpSchedule.userName, mcpColX, currentY);
+        if (mcpUser?.phone) {
+          doc.setFontSize(8);
+          doc.text(mcpUser.phone, mcpColX, currentY + 4);
+          doc.setFontSize(10);
+        }
+      } else {
+        doc.setTextColor(150, 150, 150);
+        doc.text('Available', mcpColX, currentY);
+        doc.setTextColor(0, 0, 0);
+      }
+      
+      // Learner column
+      if (learnerSchedule) {
+        const learnerUser = users.find(u => u.id === learnerSchedule.userId);
+        doc.text(learnerSchedule.userName, learnerColX, currentY);
+        if (learnerUser?.phone) {
+          doc.setFontSize(8);
+          doc.text(learnerUser.phone, learnerColX, currentY + 4);
+          doc.setFontSize(10);
+        }
+      } else {
+        doc.setTextColor(150, 150, 150);
+        doc.text('Available', learnerColX, currentY);
+        doc.setTextColor(0, 0, 0);
+      }
+      
+      currentY += (mcpSchedule?.userName || learnerSchedule?.userName) ? 12 : 8;
+      
+      // Add new page if needed
+      if (currentY > 270) {
+        doc.addPage();
+        currentY = 30;
+      }
+    }
+    
     doc.save(`EHS-LifeFlight-Schedule-${currentMonth.replace(' ', '-')}.pdf`);
     
     toast({
       title: "PDF Generated",
-      description: `Schedule for ${currentMonth} has been exported to PDF.`,
+      description: `Table-formatted schedule for ${currentMonth} has been exported to PDF.`,
     });
   };
 
