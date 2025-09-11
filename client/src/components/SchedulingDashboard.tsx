@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import Header from "./Header";
 import CalendarGrid from "./CalendarGrid";
+import TableView from "./TableView";
 import UserManagement from "./UserManagement";
 import ConfirmTradeDialog from "./ConfirmTradeDialog";
 import AdminPanel from "./AdminPanel";
@@ -251,9 +252,10 @@ export default function SchedulingDashboard() {
       />
 
       <div className="container mx-auto px-6 py-6">
-        <Tabs defaultValue="schedule" className="space-y-6">
+        <Tabs defaultValue="table" className="space-y-6">
           <TabsList>
-            <TabsTrigger value="schedule" data-testid="tab-schedule">Schedule</TabsTrigger>
+            <TabsTrigger value="table" data-testid="tab-table">Table View</TabsTrigger>
+            <TabsTrigger value="calendar" data-testid="tab-calendar">Calendar View</TabsTrigger>
             <TabsTrigger value="trades" data-testid="tab-trades">Shift Trades</TabsTrigger>
             <TabsTrigger value="team" data-testid="tab-team">Team</TabsTrigger>
             {mockCurrentUser.isAdmin && (
@@ -261,13 +263,23 @@ export default function SchedulingDashboard() {
             )}
           </TabsList>
 
-          <TabsContent value="schedule" className="space-y-6">
+          <TabsContent value="table" className="space-y-6">
+            <TableView 
+              currentDate={new Date(2024, 0, 1)}
+              schedules={schedules}
+              users={users}
+              activeMcpId={activeMcpId}
+              onDayClick={handleDayClick}
+            />
+          </TabsContent>
+
+          <TabsContent value="calendar" className="space-y-6">
             <CalendarGrid 
               month={1}
               year={2024}
               schedules={schedules}
               users={users}
-              currentUserId={mockCurrentUser.id}
+              currentUserId={activeMcpId || mockCurrentUser.id}
               onDayClick={handleDayClick}
             />
           </TabsContent>
