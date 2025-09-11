@@ -370,16 +370,26 @@ export default function SchedulingDashboard() {
         const color = getUserColor(mcpSchedule.userId, 'physician');
         doc.setTextColor(color.r, color.g, color.b);
         doc.setFont('helvetica', 'bold');
-        doc.setFontSize(Math.min(10, ROW_HEIGHT - 1));
-        centerText(mcpSchedule.userName, COL_MCP_CENTER, textY - 2);
+        doc.setFontSize(Math.min(12, ROW_HEIGHT));
         
-        // Always include phone number for contact info
+        // Get phone number to determine layout
         const mcpUser = users.find((u: User) => u.id === mcpSchedule.userId);
         if (mcpUser?.phone) {
+          // Position name and phone side by side
+          const nameText = mcpSchedule.userName;
+          const phoneText = mcpUser.phone;
+          const combinedText = `${nameText} ${phoneText}`;
+          
+          doc.setTextColor(color.r, color.g, color.b);
+          doc.text(nameText, COL_MCP_CENTER - doc.getTextWidth(combinedText)/2, textY);
+          
           doc.setTextColor(100, 100, 100);
           doc.setFont('helvetica', 'normal');
-          doc.setFontSize(Math.min(8, ROW_HEIGHT - 2));
-          centerText(mcpUser.phone, COL_MCP_CENTER, textY + 3);
+          doc.setFontSize(Math.min(11, ROW_HEIGHT - 1));
+          doc.text(phoneText, COL_MCP_CENTER - doc.getTextWidth(combinedText)/2 + doc.getTextWidth(nameText) + 3, textY);
+        } else {
+          // Just center the name if no phone
+          centerText(mcpSchedule.userName, COL_MCP_CENTER, textY);
         }
       } else {
         doc.setTextColor(150, 150, 150);
@@ -394,16 +404,26 @@ export default function SchedulingDashboard() {
         const color = getUserColor(learnerSchedule.userId, 'learner');
         doc.setTextColor(color.r, color.g, color.b);
         doc.setFont('helvetica', 'bold');
-        doc.setFontSize(Math.min(10, ROW_HEIGHT - 1));
-        centerText(learnerSchedule.userName, COL_LEARNER_CENTER, textY - 2);
+        doc.setFontSize(Math.min(12, ROW_HEIGHT));
         
-        // Always include phone number for contact info
+        // Get phone number to determine layout
         const learnerUser = users.find((u: User) => u.id === learnerSchedule.userId);
         if (learnerUser?.phone) {
+          // Position name and phone side by side
+          const nameText = learnerSchedule.userName;
+          const phoneText = learnerUser.phone;
+          const combinedText = `${nameText} ${phoneText}`;
+          
+          doc.setTextColor(color.r, color.g, color.b);
+          doc.text(nameText, COL_LEARNER_CENTER - doc.getTextWidth(combinedText)/2, textY);
+          
           doc.setTextColor(100, 100, 100);
           doc.setFont('helvetica', 'normal');
-          doc.setFontSize(Math.min(8, ROW_HEIGHT - 2));
-          centerText(learnerUser.phone, COL_LEARNER_CENTER, textY + 3);
+          doc.setFontSize(Math.min(11, ROW_HEIGHT - 1));
+          doc.text(phoneText, COL_LEARNER_CENTER - doc.getTextWidth(combinedText)/2 + doc.getTextWidth(nameText) + 3, textY);
+        } else {
+          // Just center the name if no phone
+          centerText(learnerSchedule.userName, COL_LEARNER_CENTER, textY);
         }
       } else {
         doc.setTextColor(150, 150, 150);
