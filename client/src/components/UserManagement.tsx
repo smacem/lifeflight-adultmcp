@@ -8,6 +8,71 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Trash2, Edit, Plus, Phone, User } from "lucide-react";
 
+interface UserFormData {
+  name: string;
+  phone: string;
+  role: 'physician' | 'learner' | 'admin';
+  monthlyShiftLimit: number;
+  isActive: boolean;
+}
+
+interface UserFormProps {
+  formData: UserFormData;
+  setFormData: (data: UserFormData) => void;
+}
+
+// Extract UserForm as a separate component to prevent re-creation and focus loss
+const UserForm = ({ formData, setFormData }: UserFormProps) => (
+  <div className="space-y-4">
+    <div>
+      <Label htmlFor="name">Name</Label>
+      <Input
+        id="name"
+        value={formData.name}
+        onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+        placeholder="Dr. Smith"
+        data-testid="input-user-name"
+      />
+    </div>
+    
+    <div>
+      <Label htmlFor="phone">Phone Number</Label>
+      <Input
+        id="phone"
+        value={formData.phone}
+        onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+        placeholder="555-0123"
+        data-testid="input-user-phone"
+      />
+    </div>
+
+    <div>
+      <Label htmlFor="role">Role</Label>
+      <Select value={formData.role} onValueChange={(value: 'physician' | 'learner' | 'admin') => setFormData({ ...formData, role: value })}>
+        <SelectTrigger data-testid="select-user-role">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="physician">Physician</SelectItem>
+          <SelectItem value="learner">Learner</SelectItem>
+          <SelectItem value="admin">Admin</SelectItem>
+        </SelectContent>
+      </Select>
+    </div>
+
+    <div>
+      <Label htmlFor="shiftLimit">Monthly Shift Limit</Label>
+      <Input
+        id="shiftLimit"
+        type="number"
+        value={formData.monthlyShiftLimit}
+        onChange={(e) => setFormData({ ...formData, monthlyShiftLimit: parseInt(e.target.value) || 0 })}
+        data-testid="input-shift-limit"
+      />
+    </div>
+  </div>
+);
+
 interface User {
   id: string;
   name: string;
@@ -130,57 +195,6 @@ export default function UserManagement({
     </Card>
   );
 
-  const UserForm = () => (
-    <div className="space-y-4">
-      <div>
-        <Label htmlFor="name">Name</Label>
-        <Input
-          id="name"
-          value={formData.name}
-          onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-          placeholder="Dr. Smith"
-          data-testid="input-user-name"
-        />
-      </div>
-      
-      <div>
-        <Label htmlFor="phone">Phone Number</Label>
-        <Input
-          id="phone"
-          value={formData.phone}
-          onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-          placeholder="555-0123"
-          data-testid="input-user-phone"
-        />
-      </div>
-
-      <div>
-        <Label htmlFor="role">Role</Label>
-        <Select value={formData.role} onValueChange={(value: 'physician' | 'learner' | 'admin') => setFormData({ ...formData, role: value })}>
-          <SelectTrigger data-testid="select-user-role">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="physician">Physician</SelectItem>
-            <SelectItem value="learner">Learner</SelectItem>
-            <SelectItem value="admin">Admin</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
-
-      <div>
-        <Label htmlFor="shiftLimit">Monthly Shift Limit</Label>
-        <Input
-          id="shiftLimit"
-          type="number"
-          value={formData.monthlyShiftLimit}
-          onChange={(e) => setFormData({ ...formData, monthlyShiftLimit: parseInt(e.target.value) || 0 })}
-          data-testid="input-shift-limit"
-        />
-      </div>
-    </div>
-  );
-
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -197,7 +211,7 @@ export default function UserManagement({
               <DialogHeader>
                 <DialogTitle>Add Team Member</DialogTitle>
               </DialogHeader>
-              <UserForm />
+              <UserForm formData={formData} setFormData={setFormData} />
               <div className="flex justify-end space-x-2">
                 <Button variant="outline" onClick={() => setIsAddDialogOpen(false)}>
                   Cancel
@@ -243,7 +257,7 @@ export default function UserManagement({
           <DialogHeader>
             <DialogTitle>Edit Team Member</DialogTitle>
           </DialogHeader>
-          <UserForm />
+          <UserForm formData={formData} setFormData={setFormData} />
           <div className="flex justify-end space-x-2">
             <Button variant="outline" onClick={() => setEditingUser(null)}>
               Cancel
