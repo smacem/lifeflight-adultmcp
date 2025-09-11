@@ -534,6 +534,7 @@ export default function SchedulingDashboard() {
           <TabsContent value="admin">
               <AdminPanel 
                 users={users}
+                schedules={schedules}
                 monthlySettings={monthlySettings}
                 onUpdateUserLimit={(id, limit) => handleUpdateUser(id, { monthlyShiftLimit: limit })}
                 onUpdatePublishStatus={(isPublished) => setMonthlySettings(prev => ({ ...prev, isPublished }))}

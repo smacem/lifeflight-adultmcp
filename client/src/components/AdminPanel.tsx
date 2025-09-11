@@ -6,7 +6,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Separator } from "@/components/ui/separator";
-import { Settings, Users, Calendar, Share2, Save } from "lucide-react";
+import { Settings, Users, Calendar, Share2, Save, Download } from "lucide-react";
+import { createEvent } from 'ics';
 
 interface User {
   id: string;
@@ -14,6 +15,16 @@ interface User {
   role: 'physician' | 'learner';
   monthlyShiftLimit: number;
   currentShiftCount: number;
+  phone?: string;
+}
+
+interface Schedule {
+  id: string;
+  day: number;
+  userId: string;
+  userName: string;
+  userRole: 'physician' | 'learner';
+  status?: string;
 }
 
 interface MonthlySettings {
@@ -25,6 +36,7 @@ interface MonthlySettings {
 
 interface AdminPanelProps {
   users: User[];
+  schedules: Schedule[];
   monthlySettings: MonthlySettings;
   onUpdateUserLimit: (userId: string, newLimit: number) => void;
   onUpdatePublishStatus: (isPublished: boolean) => void;
@@ -34,6 +46,7 @@ interface AdminPanelProps {
 
 export default function AdminPanel({
   users,
+  schedules,
   monthlySettings,
   onUpdateUserLimit,
   onUpdatePublishStatus,
@@ -41,6 +54,7 @@ export default function AdminPanel({
   onSaveSettings
 }: AdminPanelProps) {
   const [localSettings, setLocalSettings] = useState(monthlySettings);
+  const [selectedUserId, setSelectedUserId] = useState<string>('');
   const handleLimitChange = (userId: string, value: string) => {
     // Convert to number and clamp between 0-31
     const numericValue = value === '' ? 0 : parseInt(value) || 0;
@@ -64,6 +78,85 @@ export default function AdminPanel({
       'July', 'August', 'September', 'October', 'November', 'December'
     ];
     return months[month - 1];
+  };
+
+  const generateCalendarFile = async (userId: string) => {
+    const user = users.find(u => u.id === userId);
+    if (!user) return;
+
+    const userSchedules = schedules.filter(s => s.userId === userId);
+    
+    if (userSchedules.length === 0) {
+      alert('No shifts scheduled for this user in the current month.');
+      return;
+    }
+
+    const events = userSchedules.map(schedule => {
+      const eventDate = new Date(localSettings.year, localSettings.month - 1, schedule.day);
+      const startTime = new Date(eventDate);
+      startTime.setHours(7, 0, 0); // Default 7 AM start
+      const endTime = new Date(eventDate);
+      endTime.setHours(19, 0, 0); // Default 7 PM end (12-hour shift)
+
+      return {
+        title: `EHS LifeFlight ${user.role === 'physician' ? 'MCP' : 'Learner'} Shift`,
+        description: `${user.name} - ${user.role === 'physician' ? 'Physician' : 'Learner'} shift at EHS LifeFlight Adult MCP`,
+        location: 'EHS LifeFlight',
+        start: [startTime.getFullYear(), startTime.getMonth() + 1, startTime.getDate(), startTime.getHours(), startTime.getMinutes()] as [number, number, number, number, number],
+        end: [endTime.getFullYear(), endTime.getMonth() + 1, endTime.getDate(), endTime.getHours(), endTime.getMinutes()] as [number, number, number, number, number],
+        status: 'CONFIRMED' as const,
+        busyStatus: 'BUSY' as const,
+        organizer: { name: 'EHS LifeFlight Scheduling', email: 'scheduling@ehs.com' },
+        attendees: [{ name: user.name, email: `${user.name.toLowerCase().replace(/\s+/g, '.')}@ehs.com` }]
+      };
+    });
+
+    try {
+      // Generate multiple events
+      const icsFiles = await Promise.all(events.map(event => {
+        return new Promise((resolve, reject) => {
+          createEvent(event, (error, value) => {
+            if (error) reject(error);
+            else resolve(value);
+          });
+        });
+      }));
+
+      // Combine all events into a single ICS file
+      const icsHeader = [
+        'BEGIN:VCALENDAR',
+        'VERSION:2.0',
+        'PRODID:-//EHS LifeFlight//Adult MCP Scheduler//EN',
+        'CALSCALE:GREGORIAN',
+        'METHOD:PUBLISH'
+      ].join('\r\n');
+
+      const icsFooter = 'END:VCALENDAR';
+      
+      // Extract just the VEVENT portions from each file
+      const eventBodies = icsFiles.map(ics => {
+        const eventMatch = (ics as string).match(/BEGIN:VEVENT[\s\S]*?END:VEVENT/);
+        return eventMatch ? eventMatch[0] : '';
+      }).filter(Boolean).join('\r\n');
+
+      const combinedICS = [icsHeader, eventBodies, icsFooter].join('\r\n');
+
+      // Download file
+      const blob = new Blob([combinedICS], { type: 'text/calendar;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `${user.name.replace(/\s+/g, '_')}_EHS_Schedule_${getMonthName(localSettings.month)}_${localSettings.year}.ics`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+
+      alert(`Calendar file downloaded successfully for ${user.name}!`);
+    } catch (error) {
+      console.error('Error generating calendar file:', error);
+      alert('Error generating calendar file. Please try again.');
+    }
   };
 
   const UserLimitCard = ({ user }: { user: User }) => {
@@ -199,6 +292,64 @@ export default function AdminPanel({
           </div>
         </div>
       </div>
+
+      {/* Calendar Download */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center space-x-2">
+            <Download className="w-4 h-4" />
+            <span>Calendar Download</span>
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div>
+            <Label htmlFor="user-select" className="text-base font-medium">
+              Download Personal Schedule
+            </Label>
+            <p className="text-sm text-muted-foreground mb-3">
+              Doctors can download their {getMonthName(localSettings.month)} {localSettings.year} shifts as a calendar file (ICS) that works with Google Calendar, Apple Calendar, Outlook, and more.
+            </p>
+          </div>
+          
+          <div className="flex items-center space-x-3">
+            <div className="flex-1">
+              <Label htmlFor="user-select">Select Doctor:</Label>
+              <select
+                id="user-select"
+                value={selectedUserId}
+                onChange={(e) => setSelectedUserId(e.target.value)}
+                className="w-full px-3 py-2 border border-input rounded-md bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+                data-testid="select-calendar-user"
+              >
+                <option value="">Choose a doctor...</option>
+                {users.map(user => (
+                  <option key={user.id} value={user.id}>
+                    {user.name} ({user.role})
+                  </option>
+                ))}
+              </select>
+            </div>
+            
+            <Button
+              onClick={() => selectedUserId && generateCalendarFile(selectedUserId)}
+              disabled={!selectedUserId}
+              className="flex items-center space-x-2"
+              data-testid="button-download-calendar"
+            >
+              <Download className="w-4 h-4" />
+              <span>Download ICS</span>
+            </Button>
+          </div>
+          
+          {selectedUserId && (
+            <div className="text-sm text-muted-foreground bg-muted/30 p-3 rounded-lg">
+              <strong>📱 Compatible with:</strong> Google Calendar, Apple Calendar, Outlook, Android Calendar, and any calendar app that supports ICS files.
+              <br />
+              <strong>⏰ Default times:</strong> Shifts are set for 7:00 AM - 7:00 PM (12-hour shifts). You can adjust times in your calendar after importing.
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       {/* Schedule Statistics */}
       <Card>
