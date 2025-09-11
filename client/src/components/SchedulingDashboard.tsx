@@ -62,6 +62,7 @@ export default function SchedulingDashboard() {
   const [users, setUsers] = useState(mockUsers);
   const [schedules, setSchedules] = useState(mockSchedules);
   const [tradeRequests, setTradeRequests] = useState(mockTradeRequests);
+  const [activeMcpId, setActiveMcpId] = useState<string>("");
   const [monthlySettings, setMonthlySettings] = useState({
     month: 1,
     year: 2024,
@@ -97,6 +98,11 @@ export default function SchedulingDashboard() {
 
   const handleSettings = () => {
     console.log('Opening admin settings');
+  };
+
+  const handleActiveMcpChange = (mcpId: string) => {
+    setActiveMcpId(mcpId);
+    console.log('Active MCP changed to:', mcpId);
   };
 
   const handleDayClick = (day: number) => {
@@ -218,6 +224,9 @@ export default function SchedulingDashboard() {
         onShare={handleShare}
         onSettings={handleSettings}
         isAdmin={mockCurrentUser.isAdmin}
+        users={users}
+        activeMcpId={activeMcpId}
+        onActiveMcpChange={handleActiveMcpChange}
       />
 
       <div className="container mx-auto px-6 py-6">
