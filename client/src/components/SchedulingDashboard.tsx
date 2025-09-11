@@ -127,6 +127,33 @@ export default function SchedulingDashboard() {
     },
   });
 
+  // Shift trade mutations
+  const createTradeMutation = useMutation({
+    mutationFn: async (tradeData: { fromUserId: string; toUserId: string; scheduleId: string }) => {
+      const response = await apiRequest('POST', '/api/shift-trades', tradeData);
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/shift-trades'] });
+      toast({ title: "Trade Request Sent", description: "Your shift trade request has been sent for approval." });
+    },
+  });
+
+  const updateTradeMutation = useMutation({
+    mutationFn: async ({ id, status }: { id: string; status: 'approved' | 'rejected' }) => {
+      const response = await apiRequest('PUT', `/api/shift-trades/${id}`, { status });
+      return response.json();
+    },
+    onSuccess: (data, { status }) => {
+      queryClient.invalidateQueries({ queryKey: ['/api/shift-trades'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/schedules'] });
+      toast({ 
+        title: status === 'approved' ? "Trade Approved" : "Trade Rejected", 
+        description: status === 'approved' ? "The shift trade has been executed successfully." : "The trade request has been declined." 
+      });
+    },
+  });
+
   // Delete schedule mutation
   const deleteScheduleMutation = useMutation({
     mutationFn: async (scheduleId: string) => {
@@ -585,11 +612,20 @@ export default function SchedulingDashboard() {
     
     if (!mySchedule || !theirSchedule || !tradingPartner || !activeUser) return;
 
-    // This will need to be implemented with proper shift trade API calls
-    toast({
-      title: "Shift Trading",
-      description: "Shift trading functionality will be fully implemented with backend support.",
-    });
+    // Create the shift trade request
+    try {
+      await createTradeMutation.mutateAsync({
+        fromUserId: activeMcpId,
+        toUserId: tradingWithUserId,
+        scheduleId: myScheduleId
+      });
+    } catch (error: any) {
+      toast({
+        title: "Trade Request Failed",
+        description: error.message || "Failed to create shift trade request. Please try again.",
+        variant: "destructive"
+      });
+    }
   };
 
   const copyShareLink = () => {
@@ -719,9 +755,73 @@ export default function SchedulingDashboard() {
             {/* Recent Trades */}
             <div className="space-y-4">
               <h3 className="text-lg font-semibold">Recent Trades</h3>
-              <div className="text-center py-8 text-muted-foreground">
-                No recent trades. Use "Confirm Trade" above to execute agreed-upon shift swaps.
-              </div>
+              {tradeRequests.length === 0 ? (
+                <div className="text-center py-8 text-muted-foreground">
+                  No recent trades. Use "Confirm Trade" above to initiate shift exchanges.
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {tradeRequests.map((trade: any) => {
+                    const fromUser = users.find((u: User) => u.id === trade.fromUserId);
+                    const toUser = users.find((u: User) => u.id === trade.toUserId);
+                    const schedule = schedules.find((s: any) => s.id === trade.scheduleId);
+                    const isMyRequest = trade.fromUserId === activeMcpId;
+                    const isRequestToMe = trade.toUserId === activeMcpId && trade.status === 'pending';
+                    
+                    return (
+                      <div key={trade.id} className="border border-border rounded-lg p-4 hover-elevate">
+                        <div className="flex items-center justify-between mb-3">
+                          <div className="flex items-center space-x-2">
+                            <Badge variant={
+                              trade.status === 'approved' ? 'default' : 
+                              trade.status === 'rejected' ? 'destructive' : 
+                              'secondary'
+                            }>
+                              {trade.status}
+                            </Badge>
+                            <span className="text-sm text-muted-foreground">
+                              {new Date(trade.createdAt).toLocaleDateString()}
+                            </span>
+                          </div>
+                          {isRequestToMe && (
+                            <div className="flex space-x-2">
+                              <Button 
+                                size="sm" 
+                                onClick={() => handleApproveTrade(trade.id)}
+                                data-testid={`button-approve-trade-${trade.id}`}
+                              >
+                                Accept
+                              </Button>
+                              <Button 
+                                size="sm" 
+                                variant="outline" 
+                                onClick={() => handleRejectTrade(trade.id)}
+                                data-testid={`button-reject-trade-${trade.id}`}
+                              >
+                                Decline
+                              </Button>
+                            </div>
+                          )}
+                        </div>
+                        <div className="text-sm">
+                          <span className="font-medium">{fromUser?.name}</span> wants to trade with{' '}
+                          <span className="font-medium">{toUser?.name}</span>
+                          {schedule && (
+                            <span className="text-muted-foreground ml-2">
+                              (Day {schedule.day})
+                            </span>
+                          )}
+                        </div>
+                        {isMyRequest && (
+                          <div className="text-xs text-muted-foreground mt-1">
+                            Your request to {toUser?.name}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           </TabsContent>
 
