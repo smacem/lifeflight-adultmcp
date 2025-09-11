@@ -124,8 +124,8 @@ export default function SchedulingDashboard() {
     const mcpColX = dayColX + dayWidth; // 45
     const learnerColX = mcpColX + mcpWidth; // 125
     const tableWidth = 180;
-    const maxTableHeight = 230; // Leave space for header and footer
-    const rowHeight = Math.max(8, Math.min(12, Math.floor(maxTableHeight / (daysInMonth + 1)))); // Better min/max row height
+    const maxTableHeight = 220; // Leave space for header and footer  
+    const rowHeight = Math.max(6, Math.min(8, Math.floor(maxTableHeight / (daysInMonth + 1)))); // More aggressive scaling for single page
     const actualTableHeight = (daysInMonth + 1) * rowHeight;
     
     // Draw light red table background
@@ -141,14 +141,20 @@ export default function SchedulingDashboard() {
     doc.line(mcpColX, startY - 5, mcpColX, startY + actualTableHeight); // After Day column
     doc.line(learnerColX, startY - 5, learnerColX, startY + actualTableHeight); // After MCP column
     
-    // Table headers
-    const headerFontSize = Math.max(9, Math.min(11, rowHeight * 0.9));
+    // Table headers - center horizontally in each column
+    const headerFontSize = Math.max(8, Math.min(10, rowHeight * 0.9));
     doc.setFontSize(headerFontSize);
     doc.setFont('helvetica', 'bold');
     doc.setTextColor(0, 0, 0);
-    doc.text('Day', dayColX + 2, startY);
-    doc.text('MCP (Physician)', mcpColX + 2, startY);
-    doc.text('Learner', learnerColX + 2, startY);
+    
+    // Calculate column centers for text alignment
+    const dayColCenter = dayColX + (dayWidth / 2);
+    const mcpColCenter = mcpColX + (mcpWidth / 2);
+    const learnerColCenter = learnerColX + ((tableWidth - learnerColX) / 2);
+    
+    doc.text('Day', dayColCenter, startY, { align: 'center' });
+    doc.text('MCP (Physician)', mcpColCenter, startY, { align: 'center' });
+    doc.text('Learner', learnerColCenter, startY, { align: 'center' });
     
     // Draw header line
     doc.line(15, startY + 2, 195, startY + 2);
@@ -182,13 +188,13 @@ export default function SchedulingDashboard() {
         doc.setLineWidth(0.5);
       }
       
-      // Day number
+      // Day number - center in cell
       doc.setTextColor(0, 0, 0);
-      const textFontSize = Math.max(8, Math.min(10, rowHeight * 0.75));
+      const textFontSize = Math.max(7, Math.min(9, rowHeight * 0.75));
       doc.setFontSize(textFontSize);
       doc.setFont('helvetica', 'bold');
-      const textY = currentY - (rowHeight * 0.25); // Center vertically in row
-      doc.text(day.toString(), dayColX + 2, textY);
+      const textY = currentY - (rowHeight * 0.5); // True center vertically in row
+      doc.text(day.toString(), dayColCenter, textY, { align: 'center' });
       
       // MCP column
       if (mcpSchedule) {
@@ -197,20 +203,20 @@ export default function SchedulingDashboard() {
         doc.setTextColor(color.r, color.g, color.b);
         doc.setFont('helvetica', 'bold');
         doc.setFontSize(textFontSize);
-        doc.text(mcpSchedule.userName, mcpColX + 2, textY);
+        doc.text(mcpSchedule.userName, mcpColCenter, textY, { align: 'center' });
         
-        if (mcpUser?.phone && rowHeight > 9) {
+        if (mcpUser?.phone && rowHeight > 7) {
           doc.setTextColor(100, 100, 100);
           doc.setFont('helvetica', 'normal');
-          doc.setFontSize(Math.max(6, textFontSize * 0.75));
-          doc.text(mcpUser.phone, mcpColX + 2, textY + (rowHeight * 0.3));
+          doc.setFontSize(Math.max(5, textFontSize * 0.7));
+          doc.text(mcpUser.phone, mcpColCenter, textY + (rowHeight * 0.25), { align: 'center' });
           doc.setFontSize(textFontSize);
         }
       } else {
         doc.setTextColor(150, 150, 150);
         doc.setFont('helvetica', 'italic');
         doc.setFontSize(textFontSize);
-        doc.text('Available', mcpColX + 2, textY);
+        doc.text('Available', mcpColCenter, textY, { align: 'center' });
       }
       
       // Learner column - only show if there's a learner scheduled (no "Available" text)
@@ -220,13 +226,13 @@ export default function SchedulingDashboard() {
         doc.setTextColor(color.r, color.g, color.b);
         doc.setFont('helvetica', 'bold');
         doc.setFontSize(textFontSize);
-        doc.text(learnerSchedule.userName, learnerColX + 2, textY);
+        doc.text(learnerSchedule.userName, learnerColCenter, textY, { align: 'center' });
         
-        if (learnerUser?.phone && rowHeight > 9) {
+        if (learnerUser?.phone && rowHeight > 7) {
           doc.setTextColor(100, 100, 100);
           doc.setFont('helvetica', 'normal');
-          doc.setFontSize(Math.max(6, textFontSize * 0.75));
-          doc.text(learnerUser.phone, learnerColX + 2, textY + (rowHeight * 0.3));
+          doc.setFontSize(Math.max(5, textFontSize * 0.7));
+          doc.text(learnerUser.phone, learnerColCenter, textY + (rowHeight * 0.25), { align: 'center' });
           doc.setFontSize(textFontSize);
         }
       }
