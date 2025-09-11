@@ -4,6 +4,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Download, Phone, User } from "lucide-react";
 import { format, getDaysInMonth, startOfMonth, getDay } from "date-fns";
 import logoImage from "@assets/IMG_4131_1757550683322.png";
+import TableView from "@/components/TableView";
+import CalendarGrid from "@/components/CalendarGrid";
 
 interface PublicUser {
   id: string;
@@ -119,29 +121,45 @@ export default function PublicScheduleView({
       </header>
 
       <div className="container mx-auto px-6 py-8 space-y-8">
-        {/* Schedule Calendar */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-xl">
-              {getMonthName(month)} {year} Schedule
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            {/* Days of week header */}
-            <div className="grid grid-cols-7 mb-2">
-              {['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'].map(day => (
-                <div key={day} className="text-center text-sm font-medium text-muted-foreground p-2">
-                  {day}
-                </div>
-              ))}
-            </div>
+        {/* Table View - Identical to active view */}
+        <TableView 
+          schedules={schedules.map(s => ({ 
+            ...s, 
+            month: month, 
+            year: year, 
+            status: 'scheduled' as const 
+          }))}
+          users={users.map(u => ({ 
+            ...u, 
+            role: u.role, 
+            monthlyShiftLimit: 0,
+            currentShiftCount: 0,
+            isActive: false
+          }))}
+          currentDate={currentDate}
+          activeMcpId=""
+          onDayClick={() => {}} // No-op for read-only view
+          isPublicView={true}
+        />
 
-            {/* Calendar grid */}
-            <div className="grid grid-cols-7 gap-1">
-              {renderCalendarDays()}
-            </div>
-          </CardContent>
-        </Card>
+        {/* Calendar View - Below table view */}
+        <CalendarGrid 
+          month={month}
+          year={year}
+          schedules={schedules.map(s => ({ 
+            ...s, 
+            status: 'scheduled' as const 
+          }))}
+          users={users.map(u => ({ 
+            ...u, 
+            role: u.role, 
+            monthlyShiftLimit: 0,
+            currentShiftCount: 0
+          }))}
+          currentUserId=""
+          onDayClick={() => {}} // No-op for read-only view
+          isPublicView={true}
+        />
 
         {/* Contact Information */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
