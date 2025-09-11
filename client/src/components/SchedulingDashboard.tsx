@@ -123,7 +123,7 @@ export default function SchedulingDashboard() {
     const learnerColX = 115;
     const tableWidth = 180;
     const maxTableHeight = 230; // Leave space for header and footer
-    const rowHeight = Math.min(10, Math.floor(maxTableHeight / (daysInMonth + 1))); // Dynamic row height
+    const rowHeight = Math.max(8, Math.min(12, Math.floor(maxTableHeight / (daysInMonth + 1)))); // Better min/max row height
     const actualTableHeight = (daysInMonth + 1) * rowHeight;
     
     // Draw light red table background
@@ -140,12 +140,13 @@ export default function SchedulingDashboard() {
     doc.line(125, startY - 5, 125, startY + actualTableHeight); // After MCP column
     
     // Table headers
-    const headerFontSize = Math.min(10, rowHeight * 0.8);
+    const headerFontSize = Math.max(9, Math.min(11, rowHeight * 0.9));
     doc.setFontSize(headerFontSize);
     doc.setFont('helvetica', 'bold');
-    doc.text('Day', dayColX, startY);
-    doc.text('MCP (Physician)', mcpColX, startY);
-    doc.text('Learner', learnerColX, startY);
+    doc.setTextColor(0, 0, 0);
+    doc.text('Day', dayColX + 2, startY);
+    doc.text('MCP (Physician)', mcpColX + 2, startY);
+    doc.text('Learner', learnerColX + 2, startY);
     
     // Draw header line
     doc.line(15, startY + 2, 185, startY + 2);
@@ -181,9 +182,11 @@ export default function SchedulingDashboard() {
       
       // Day number
       doc.setTextColor(0, 0, 0);
-      const textFontSize = Math.min(9, rowHeight * 0.7);
+      const textFontSize = Math.max(8, Math.min(10, rowHeight * 0.75));
       doc.setFontSize(textFontSize);
-      doc.text(day.toString(), dayColX, currentY);
+      doc.setFont('helvetica', 'bold');
+      const textY = currentY - (rowHeight * 0.25); // Center vertically in row
+      doc.text(day.toString(), dayColX + 2, textY);
       
       // MCP column
       if (mcpSchedule) {
@@ -191,19 +194,21 @@ export default function SchedulingDashboard() {
         const color = getUserColor(mcpSchedule.userId, 'physician');
         doc.setTextColor(color.r, color.g, color.b);
         doc.setFont('helvetica', 'bold');
-        doc.text(mcpSchedule.userName, mcpColX, currentY);
+        doc.setFontSize(textFontSize);
+        doc.text(mcpSchedule.userName, mcpColX + 2, textY);
         
-        if (mcpUser?.phone && rowHeight > 8) {
+        if (mcpUser?.phone && rowHeight > 9) {
           doc.setTextColor(100, 100, 100);
           doc.setFont('helvetica', 'normal');
-          doc.setFontSize(Math.min(7, textFontSize * 0.8));
-          doc.text(mcpUser.phone, mcpColX, currentY + rowHeight/3);
+          doc.setFontSize(Math.max(6, textFontSize * 0.75));
+          doc.text(mcpUser.phone, mcpColX + 2, textY + (rowHeight * 0.3));
           doc.setFontSize(textFontSize);
         }
       } else {
         doc.setTextColor(150, 150, 150);
         doc.setFont('helvetica', 'italic');
-        doc.text('Available', mcpColX, currentY);
+        doc.setFontSize(textFontSize);
+        doc.text('Available', mcpColX + 2, textY);
       }
       
       // Learner column - only show if there's a learner scheduled (no "Available" text)
@@ -212,13 +217,14 @@ export default function SchedulingDashboard() {
         const color = getUserColor(learnerSchedule.userId, 'learner');
         doc.setTextColor(color.r, color.g, color.b);
         doc.setFont('helvetica', 'bold');
-        doc.text(learnerSchedule.userName, learnerColX, currentY);
+        doc.setFontSize(textFontSize);
+        doc.text(learnerSchedule.userName, learnerColX + 2, textY);
         
-        if (learnerUser?.phone && rowHeight > 8) {
+        if (learnerUser?.phone && rowHeight > 9) {
           doc.setTextColor(100, 100, 100);
           doc.setFont('helvetica', 'normal');
-          doc.setFontSize(Math.min(7, textFontSize * 0.8));
-          doc.text(learnerUser.phone, learnerColX, currentY + rowHeight/3);
+          doc.setFontSize(Math.max(6, textFontSize * 0.75));
+          doc.text(learnerUser.phone, learnerColX + 2, textY + (rowHeight * 0.3));
           doc.setFontSize(textFontSize);
         }
       }
