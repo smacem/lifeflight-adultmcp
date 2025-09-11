@@ -14,13 +14,7 @@ import { toast } from "@/hooks/use-toast";
 import { Share } from 'lucide-react';
 import jsPDF from 'jspdf';
 
-// TODO: remove mock data
-const mockCurrentUser = {
-  id: '1',
-  name: 'Dr. Sarah Smith',
-  role: 'physician' as const,
-  isAdmin: true
-};
+// No current user - users select themselves as active user for general access
 
 // TODO: remove mock data
 const mockUsers = [
@@ -178,13 +172,22 @@ export default function SchedulingDashboard() {
   };
 
   const handleDayClick = (day: number) => {
-    // Use active user (can be MCP or learner) instead of current user for scheduling
-    const userId = activeMcpId || mockCurrentUser.id;
-    const user = users.find(u => u.id === userId);
-    if (!user) {
+    // Require active user selection for scheduling
+    if (!activeMcpId) {
       toast({
         title: "No Active User Selected", 
         description: "Please select an Active User to schedule shifts.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    const userId = activeMcpId;
+    const user = users.find(u => u.id === userId);
+    if (!user) {
+      toast({
+        title: "User Not Found", 
+        description: "The selected active user was not found.",
         variant: "destructive"
       });
       return;
@@ -289,12 +292,22 @@ export default function SchedulingDashboard() {
   };
 
   const handleConfirmTrade = (myScheduleId: string, theirScheduleId: string, tradingWithUserId: string) => {
-    // Find the schedules
+    if (!activeMcpId) {
+      toast({
+        title: "No Active User Selected", 
+        description: "Please select an Active User to perform trades.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    // Find the schedules and users
     const mySchedule = schedules.find(s => s.id === myScheduleId);
     const theirSchedule = schedules.find(s => s.id === theirScheduleId);
     const tradingPartner = users.find(u => u.id === tradingWithUserId);
+    const activeUser = users.find(u => u.id === activeMcpId);
     
-    if (!mySchedule || !theirSchedule || !tradingPartner) return;
+    if (!mySchedule || !theirSchedule || !tradingPartner || !activeUser) return;
 
     // Swap the schedules
     setSchedules(prev => prev.map(schedule => {
@@ -302,7 +315,7 @@ export default function SchedulingDashboard() {
         return { ...schedule, userId: tradingWithUserId, userName: tradingPartner.name };
       }
       if (schedule.id === theirScheduleId) {
-        return { ...schedule, userId: mockCurrentUser.id, userName: mockCurrentUser.name };
+        return { ...schedule, userId: activeMcpId, userName: activeUser.name };
       }
       return schedule;
     }));
@@ -329,7 +342,7 @@ export default function SchedulingDashboard() {
         onExportPDF={handleExportPDF}
         onShare={handleShare}
         onSettings={handleSettings}
-        isAdmin={mockCurrentUser.isAdmin}
+        isAdmin={activeMcpId ? users.find(u => u.id === activeMcpId)?.role === 'physician' : false}
       />
 
       <div className="container mx-auto px-6 py-6">
@@ -339,7 +352,7 @@ export default function SchedulingDashboard() {
             <TabsTrigger value="calendar" data-testid="tab-calendar">Calendar View</TabsTrigger>
             <TabsTrigger value="trades" data-testid="tab-trades">Shift Trades</TabsTrigger>
             <TabsTrigger value="team" data-testid="tab-team">Team</TabsTrigger>
-            {mockCurrentUser.isAdmin && (
+            {activeMcpId && users.find(u => u.id === activeMcpId)?.role === 'physician' && (
               <TabsTrigger value="admin" data-testid="tab-admin">Admin</TabsTrigger>
             )}
           </TabsList>
@@ -386,7 +399,7 @@ export default function SchedulingDashboard() {
               year={2024}
               schedules={schedules}
               users={users}
-              currentUserId={activeMcpId || mockCurrentUser.id}
+              currentUserId={activeMcpId || ''}
               onDayClick={handleDayClick}
             />
           </TabsContent>
@@ -400,7 +413,7 @@ export default function SchedulingDashboard() {
               <ConfirmTradeDialog 
                 users={users}
                 schedules={schedules.map(s => ({ ...s, month: 1, year: 2024 }))}
-                currentUserId={mockCurrentUser.id}
+                currentUserId={activeMcpId || ''}
                 onConfirmTrade={handleConfirmTrade}
               />
             </div>
@@ -420,11 +433,11 @@ export default function SchedulingDashboard() {
               onAddUser={handleAddUser}
               onUpdateUser={handleUpdateUser}
               onDeleteUser={handleDeleteUser}
-              isAdmin={mockCurrentUser.isAdmin}
+              isAdmin={activeMcpId ? users.find(u => u.id === activeMcpId)?.role === 'physician' : false}
             />
           </TabsContent>
 
-          {mockCurrentUser.isAdmin && (
+          {activeMcpId && users.find(u => u.id === activeMcpId)?.role === 'physician' && (
             <TabsContent value="admin">
               <AdminPanel 
                 users={users}
