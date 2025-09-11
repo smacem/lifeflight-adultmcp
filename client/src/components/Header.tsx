@@ -26,30 +26,22 @@ export default function Header({
   ];
 
   return (
-    <header className="bg-white border-b border-border px-6 py-4">
-      <div className="flex items-center justify-between gap-6">
-        <div className="flex items-center space-x-3 min-w-0 flex-shrink-0">
-          <img 
-            src={logoImage} 
-            alt="EHS LifeFlight Logo" 
-            className="h-10 w-auto"
-          />
-          <div className="text-sm text-muted-foreground whitespace-nowrap">
-            Adult MCP Self-Scheduler
+    <header className="bg-red-50 border-b border-border px-6 py-4">
+      <div className="flex items-center gap-6">
+        <div className="flex items-center justify-center flex-1">
+          <div className="flex items-center space-x-4">
+            <img 
+              src={logoImage} 
+              alt="EHS LifeFlight Logo" 
+              className="h-16 w-auto"
+            />
+            <div className="text-xl font-semibold text-foreground whitespace-nowrap">
+              Adult MCP Self-Scheduler
+            </div>
           </div>
         </div>
 
         <div className="flex items-center space-x-4 flex-wrap justify-end">
-          <select 
-            value={currentMonth} 
-            onChange={(e) => onMonthChange(e.target.value)}
-            className="px-3 py-2 border border-input rounded-md bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
-            data-testid="select-month"
-          >
-            {months.map(month => (
-              <option key={month} value={month}>{month}</option>
-            ))}
-          </select>
 
           <Button 
             variant="outline" 
