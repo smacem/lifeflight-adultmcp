@@ -207,7 +207,7 @@ export default function SchedulingDashboard() {
     
     // Row setup
     const HEADER_HEIGHT = 12;
-    const ROW_HEIGHT = Math.max(7, Math.floor(210 / (daysInMonth + 1))); // Fit on one page
+    const ROW_HEIGHT = Math.max(12, Math.floor(210 / (daysInMonth + 1))); // Ensure space for phone numbers
     const TABLE_HEIGHT = HEADER_HEIGHT + (daysInMonth * ROW_HEIGHT);
     
     // ===============================
@@ -298,9 +298,9 @@ export default function SchedulingDashboard() {
         doc.setFont('helvetica', 'bold');
         centerText(mcpSchedule.userName, COL_MCP_CENTER, textY);
         
-        // Phone number if space allows
+        // Always include phone number for contact info
         const mcpUser = users.find((u: User) => u.id === mcpSchedule.userId);
-        if (mcpUser?.phone && ROW_HEIGHT > 10) {
+        if (mcpUser?.phone) {
           doc.setTextColor(100, 100, 100);
           doc.setFont('helvetica', 'normal');
           doc.setFontSize(7);
@@ -322,9 +322,9 @@ export default function SchedulingDashboard() {
         doc.setFontSize(9);
         centerText(learnerSchedule.userName, COL_LEARNER_CENTER, textY);
         
-        // Phone number if space allows
+        // Always include phone number for contact info
         const learnerUser = users.find((u: User) => u.id === learnerSchedule.userId);
-        if (learnerUser?.phone && ROW_HEIGHT > 10) {
+        if (learnerUser?.phone) {
           doc.setTextColor(100, 100, 100);
           doc.setFont('helvetica', 'normal');
           doc.setFontSize(7);
