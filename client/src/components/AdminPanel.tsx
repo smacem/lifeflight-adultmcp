@@ -48,10 +48,12 @@ export default function AdminPanel({
     }), {})
   );
 
-  const handleLimitChange = (userId: string, newLimit: number) => {
+  const handleLimitChange = (userId: string, value: string) => {
+    // Allow empty string during editing, convert to number on blur/enter
+    const numericValue = value === '' ? 0 : parseInt(value) || 0;
     setUserLimits(prev => ({
       ...prev,
-      [userId]: newLimit
+      [userId]: Math.min(31, Math.max(0, numericValue)) // Clamp between 0-31
     }));
   };
 
@@ -109,7 +111,7 @@ export default function AdminPanel({
               min="0"
               max="31"
               value={currentLimit}
-              onChange={(e) => handleLimitChange(user.id, parseInt(e.target.value) || 0)}
+              onChange={(e) => handleLimitChange(user.id, e.target.value)}
               className="w-20"
               data-testid={`input-limit-${user.id}`}
             />
