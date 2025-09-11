@@ -71,6 +71,21 @@ export default function SchedulingDashboard() {
     console.log('Month changed to:', month);
   };
 
+  // Helper function to parse the current month string into month/year numbers
+  const parseCurrentMonth = () => {
+    // currentMonth format: "January 2024", "February 2024", etc.
+    const monthNames = [
+      'January', 'February', 'March', 'April', 'May', 'June',
+      'July', 'August', 'September', 'October', 'November', 'December'
+    ];
+    const [monthName, yearStr] = currentMonth.split(' ');
+    const month = monthNames.indexOf(monthName) + 1; // 1-based month
+    const year = parseInt(yearStr);
+    return { month, year };
+  };
+
+  const { month: selectedMonth, year: selectedYear } = parseCurrentMonth();
+
   const handleExportPDF = () => {
     const doc = new jsPDF();
     const currentDate = new Date(2024, 0, 1); // January 2024
@@ -403,7 +418,7 @@ export default function SchedulingDashboard() {
 
           <TabsContent value="table" className="space-y-6">
             <TableView 
-              currentDate={new Date(2024, 0, 1)}
+              currentDate={new Date(selectedYear, selectedMonth - 1, 1)}
               schedules={schedules}
               users={users}
               activeMcpId={activeMcpId}
@@ -413,8 +428,8 @@ export default function SchedulingDashboard() {
 
           <TabsContent value="calendar" className="space-y-6">
             <CalendarGrid 
-              month={1}
-              year={2024}
+              month={selectedMonth}
+              year={selectedYear}
               schedules={schedules}
               users={users}
               currentUserId={activeMcpId || ''}
