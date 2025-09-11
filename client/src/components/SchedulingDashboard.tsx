@@ -94,7 +94,7 @@ export default function SchedulingDashboard() {
     const learnerColX = 120;
     
     doc.setFontSize(10);
-    doc.setFont(undefined, 'bold');
+    doc.setFont('helvetica', 'bold');
     doc.text('Day', dayColX, startY);
     doc.text('MCP (Physician)', mcpColX, startY);
     doc.text('Learner', learnerColX, startY);
@@ -103,7 +103,7 @@ export default function SchedulingDashboard() {
     doc.line(15, startY + 2, 190, startY + 2);
     
     // Table data
-    doc.setFont(undefined, 'normal');
+    doc.setFont('helvetica', 'normal');
     let currentY = startY + 10;
     
     for (let day = 1; day <= daysInMonth; day++) {
