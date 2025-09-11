@@ -46,27 +46,68 @@ export const monthlySettings = pgTable("monthly_settings", {
   createdAt: timestamp("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
 });
 
-// Insert schemas
+// Insert schemas with validation rules
 export const insertUserSchema = createInsertSchema(users).omit({
   id: true,
   createdAt: true,
+}).extend({
+  name: z.string().min(1, "Name is required").max(100, "Name must be less than 100 characters"),
+  phone: z.string().regex(/^\+?[\d\s\-\(\)\.]{10,20}$/, "Phone number must be valid (10-20 digits)"),
+  monthlyShiftLimit: z.number().int().min(1, "Monthly shift limit must be at least 1").max(31, "Monthly shift limit cannot exceed 31"),
 });
 
 export const insertScheduleSchema = createInsertSchema(schedules).omit({
   id: true,
   createdAt: true,
+}).extend({
+  month: z.number().int().min(1, "Month must be between 1 and 12").max(12, "Month must be between 1 and 12"),
+  year: z.number().int().min(2020, "Year must be 2020 or later").max(2100, "Year must be 2100 or earlier"),
+  day: z.number().int().min(1, "Day must be between 1 and 31").max(31, "Day must be between 1 and 31"),
+  userId: z.string().uuid("User ID must be a valid UUID"),
 });
 
 export const insertShiftTradeSchema = createInsertSchema(shiftTrades).omit({
   id: true,
   requestedAt: true,
   respondedAt: true,
+}).extend({
+  fromUserId: z.string().uuid("From User ID must be a valid UUID"),
+  toUserId: z.string().uuid("To User ID must be a valid UUID"),
+  scheduleId: z.string().uuid("Schedule ID must be a valid UUID"),
+}).refine(data => data.fromUserId !== data.toUserId, {
+  message: "Cannot trade shift with yourself",
+  path: ["toUserId"],
 });
 
 export const insertMonthlySettingsSchema = createInsertSchema(monthlySettings).omit({
   id: true,
   createdAt: true,
+}).extend({
+  month: z.number().int().min(1, "Month must be between 1 and 12").max(12, "Month must be between 1 and 12"),
+  year: z.number().int().min(2020, "Year must be 2020 or later").max(2100, "Year must be 2100 or earlier"),
 });
+
+// API request validation schemas
+export const monthYearQuerySchema = z.object({
+  month: z.string().transform(val => {
+    const num = parseInt(val);
+    if (isNaN(num)) throw new Error("Month must be a number");
+    return num;
+  }).pipe(z.number().int().min(1, "Month must be between 1 and 12").max(12, "Month must be between 1 and 12")),
+  year: z.string().transform(val => {
+    const num = parseInt(val);
+    if (isNaN(num)) throw new Error("Year must be a number");
+    return num;
+  }).pipe(z.number().int().min(2020, "Year must be 2020 or later").max(2100, "Year must be 2100 or earlier")),
+});
+
+export const tradeStatusUpdateSchema = z.object({
+  status: z.enum(['approved', 'rejected', 'cancelled'], {
+    errorMap: () => ({ message: "Status must be 'approved', 'rejected', or 'cancelled'" })
+  }),
+});
+
+export const uuidParamSchema = z.string().uuid("ID must be a valid UUID");
 
 // Types
 export type InsertUser = z.infer<typeof insertUserSchema>;
@@ -80,6 +121,40 @@ export type ShiftTrade = typeof shiftTrades.$inferSelect;
 
 export type InsertMonthlySettings = z.infer<typeof insertMonthlySettingsSchema>;
 export type MonthlySettings = typeof monthlySettings.$inferSelect;
+
+// Relations
+import { relations } from "drizzle-orm";
+
+export const usersRelations = relations(users, ({ many }) => ({
+  schedules: many(schedules),
+  fromTrades: many(shiftTrades, { relationName: "fromUser" }),
+  toTrades: many(shiftTrades, { relationName: "toUser" }),
+}));
+
+export const schedulesRelations = relations(schedules, ({ one, many }) => ({
+  user: one(users, {
+    fields: [schedules.userId],
+    references: [users.id],
+  }),
+  trades: many(shiftTrades),
+}));
+
+export const shiftTradesRelations = relations(shiftTrades, ({ one }) => ({
+  fromUser: one(users, {
+    fields: [shiftTrades.fromUserId],
+    references: [users.id],
+    relationName: "fromUser",
+  }),
+  toUser: one(users, {
+    fields: [shiftTrades.toUserId],
+    references: [users.id],
+    relationName: "toUser",
+  }),
+  schedule: one(schedules, {
+    fields: [shiftTrades.scheduleId],
+    references: [schedules.id],
+  }),
+}));
 
 // Extended types for API responses
 export type ScheduleWithUser = Schedule & {

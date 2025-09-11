@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import Header from "./Header";
 import CalendarGrid from "./CalendarGrid";
@@ -8,49 +9,12 @@ import ConfirmTradeDialog from "./ConfirmTradeDialog";
 import AdminPanel from "./AdminPanel";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { toast } from "@/hooks/use-toast";
 import { Share } from 'lucide-react';
 import jsPDF from 'jspdf';
 import logoImage from "@assets/IMG_4131_1757550683322.png";
-
-// No current user - users select themselves as active user for general access
-
-// TODO: remove mock data
-const mockUsers = [
-  { id: '1', name: 'Dr. Sarah Smith', phone: '555-0101', role: 'physician' as const, monthlyShiftLimit: 8, isActive: true, currentShiftCount: 3 },
-  { id: '2', name: 'Dr. Michael Johnson', phone: '555-0102', role: 'physician' as const, monthlyShiftLimit: 8, isActive: true, currentShiftCount: 5 },
-  { id: '3', name: 'Dr. Emily Chen', phone: '555-0103', role: 'physician' as const, monthlyShiftLimit: 6, isActive: true, currentShiftCount: 6 },
-  { id: '4', name: 'Medical Student Alex', phone: '555-0201', role: 'learner' as const, monthlyShiftLimit: 4, isActive: true, currentShiftCount: 2 },
-  { id: '5', name: 'Resident Taylor', phone: '555-0202', role: 'learner' as const, monthlyShiftLimit: 6, isActive: true, currentShiftCount: 4 },
-];
-
-// TODO: remove mock data
-const mockSchedules = [
-  { id: 's1', day: 1, userId: '1', userName: 'Dr. Sarah Smith', userRole: 'physician' as const, status: 'scheduled' as const },
-  { id: 's2', day: 3, userId: '2', userName: 'Dr. Michael Johnson', userRole: 'physician' as const, status: 'scheduled' as const },
-  { id: 's3', day: 5, userId: '4', userName: 'Medical Student Alex', userRole: 'learner' as const, status: 'scheduled' as const },
-  { id: 's4', day: 7, userId: '1', userName: 'Dr. Sarah Smith', userRole: 'physician' as const, status: 'scheduled' as const },
-  { id: 's5', day: 10, userId: '3', userName: 'Dr. Emily Chen', userRole: 'physician' as const, status: 'scheduled' as const },
-  { id: 's6', day: 12, userId: '5', userName: 'Resident Taylor', userRole: 'learner' as const, status: 'scheduled' as const },
-  { id: 's7', day: 15, userId: '2', userName: 'Dr. Michael Johnson', userRole: 'physician' as const, status: 'scheduled' as const },
-];
-
-// TODO: remove mock data
-const mockTradeRequests = [
-  {
-    id: 'tr1',
-    fromUserId: '2',
-    fromUserName: 'Dr. Michael Johnson',
-    toUserId: '1',
-    toUserName: 'Dr. Sarah Smith',
-    scheduleId: 's2',
-    shiftDate: new Date(2024, 0, 3),
-    status: 'pending' as const,
-    requestedAt: new Date(2024, 0, 1),
-  }
-];
+import { apiRequest } from "@/lib/queryClient";
+import type { User, Schedule, ShiftTrade } from "@shared/schema";
 
 export default function SchedulingDashboard() {
   // Initialize with current month
@@ -66,22 +30,9 @@ export default function SchedulingDashboard() {
   const [currentMonth, setCurrentMonth] = useState(getCurrentMonth());
   const [shareDialogOpen, setShareDialogOpen] = useState(false);
   const [shareLink, setShareLink] = useState("");
-  const [users, setUsers] = useState(mockUsers);
-  const [schedules, setSchedules] = useState(mockSchedules);
-  const [tradeRequests, setTradeRequests] = useState(mockTradeRequests);
+  const queryClient = useQueryClient();
   const [activeMcpId, setActiveMcpId] = useState<string>("");
-  const [monthlySettings, setMonthlySettings] = useState({
-    month: 1,
-    year: 2024,
-    isPublished: true,
-    publicShareToken: 'abc123def456'
-  });
-
-  const handleMonthChange = (month: string) => {
-    setCurrentMonth(month);
-    console.log('Month changed to:', month);
-  };
-
+  
   // Helper function to parse the current month string into month/year numbers
   const parseCurrentMonth = () => {
     // currentMonth format: "January 2024", "February 2024", etc.
@@ -96,6 +47,78 @@ export default function SchedulingDashboard() {
   };
 
   const { month: selectedMonth, year: selectedYear } = parseCurrentMonth();
+  
+  // Fetch users with proper typing
+  const { data: users = [], isLoading: usersLoading } = useQuery<User[]>({
+    queryKey: ['/api/users'],
+    staleTime: 5 * 60 * 1000, // 5 minutes
+  });
+
+  // Fetch schedules for current month with proper typing
+  const { data: apiSchedules = [], isLoading: schedulesLoading } = useQuery<Schedule[]>({
+    queryKey: ['/api/schedules', selectedMonth, selectedYear],
+    queryFn: async () => {
+      const response = await apiRequest('GET', `/api/schedules?month=${selectedMonth}&year=${selectedYear}`);
+      return response.json();
+    },
+    staleTime: 30 * 1000, // 30 seconds
+  });
+
+  // Transform API schedules to match frontend format
+  const schedules = apiSchedules.map((schedule: Schedule) => {
+    const user = users.find((u: User) => u.id === schedule.userId);
+    const userRole = user?.role === 'admin' ? 'physician' : (user?.role || 'physician');
+    return {
+      id: schedule.id,
+      day: schedule.day,
+      userId: schedule.userId,
+      userName: user?.name || 'Unknown User',
+      userRole: userRole as 'physician' | 'learner',
+      status: schedule.status
+    };
+  });
+
+  // Fetch shift trades with proper typing
+  const { data: tradeRequests = [] } = useQuery<ShiftTrade[]>({
+    queryKey: ['/api/shift-trades'],
+    staleTime: 30 * 1000, // 30 seconds
+  });
+  
+  // Create schedule mutation
+  const createScheduleMutation = useMutation({
+    mutationFn: async (scheduleData: { month: number; year: number; day: number; userId: string }) => {
+      const response = await apiRequest('POST', '/api/schedules', scheduleData);
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/schedules'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/users'] });
+    },
+  });
+
+  // Delete schedule mutation
+  const deleteScheduleMutation = useMutation({
+    mutationFn: async (scheduleId: string) => {
+      const response = await apiRequest('DELETE', `/api/schedules/${scheduleId}`);
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/schedules'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/users'] });
+    },
+  });
+  
+  const [monthlySettings, setMonthlySettings] = useState({
+    month: 1,
+    year: 2024,
+    isPublished: true,
+    publicShareToken: 'abc123def456'
+  });
+
+  const handleMonthChange = (month: string) => {
+    setCurrentMonth(month);
+    console.log('Month changed to:', month);
+  };
 
   const handleExportPDF = () => {
     const doc = new jsPDF();
@@ -205,7 +228,7 @@ export default function SchedulingDashboard() {
     
     const getUserColor = (userId: string, role: string) => {
       if (role === 'physician') {
-        const user = users.find(u => u.id === userId);
+        const user = users.find((u: User) => u.id === userId);
         if (user?.name.includes('Sarah')) return { r: 34, g: 197, b: 94 };
         if (user?.name.includes('Michael')) return { r: 139, g: 69, b: 19 };
         if (user?.name.includes('Emily')) return { r: 99, g: 102, b: 241 };
@@ -237,7 +260,7 @@ export default function SchedulingDashboard() {
       centerText(day.toString(), COL_DAY_CENTER, textY);
       
       // MCP column
-      const mcpSchedule = schedules.find(s => s.day === day && s.userRole === 'physician');
+      const mcpSchedule = schedules.find((s: any) => s.day === day && s.userRole === 'physician');
       if (mcpSchedule) {
         const color = getUserColor(mcpSchedule.userId, 'physician');
         doc.setTextColor(color.r, color.g, color.b);
@@ -245,7 +268,7 @@ export default function SchedulingDashboard() {
         centerText(mcpSchedule.userName, COL_MCP_CENTER, textY);
         
         // Phone number if space allows
-        const mcpUser = users.find(u => u.id === mcpSchedule.userId);
+        const mcpUser = users.find((u: User) => u.id === mcpSchedule.userId);
         if (mcpUser?.phone && ROW_HEIGHT > 10) {
           doc.setTextColor(100, 100, 100);
           doc.setFont('helvetica', 'normal');
@@ -260,7 +283,7 @@ export default function SchedulingDashboard() {
       }
       
       // Learner column
-      const learnerSchedule = schedules.find(s => s.day === day && s.userRole === 'learner');
+      const learnerSchedule = schedules.find((s: any) => s.day === day && s.userRole === 'learner');
       if (learnerSchedule) {
         const color = getUserColor(learnerSchedule.userId, 'learner');
         doc.setTextColor(color.r, color.g, color.b);
@@ -269,7 +292,7 @@ export default function SchedulingDashboard() {
         centerText(learnerSchedule.userName, COL_LEARNER_CENTER, textY);
         
         // Phone number if space allows
-        const learnerUser = users.find(u => u.id === learnerSchedule.userId);
+        const learnerUser = users.find((u: User) => u.id === learnerSchedule.userId);
         if (learnerUser?.phone && ROW_HEIGHT > 10) {
           doc.setTextColor(100, 100, 100);
           doc.setFont('helvetica', 'normal');
@@ -305,7 +328,7 @@ export default function SchedulingDashboard() {
     console.log('Active MCP changed to:', mcpId);
   };
 
-  const handleDayClick = (day: number) => {
+  const handleDayClick = async (day: number) => {
     // Require active user selection for scheduling
     if (!activeMcpId) {
       toast({
@@ -317,7 +340,7 @@ export default function SchedulingDashboard() {
     }
 
     const userId = activeMcpId;
-    const user = users.find(u => u.id === userId);
+    const user = users.find((u: User) => u.id === userId);
     if (!user) {
       toast({
         title: "User Not Found", 
@@ -329,9 +352,9 @@ export default function SchedulingDashboard() {
 
     // Check if day is already locked by another person of the same role
     if (user.role === 'physician') {
-      const existingPhysician = schedules.find(s => s.day === day && s.userRole === 'physician');
+      const existingPhysician = schedules.find((s: any) => s.day === day && s.userRole === 'physician');
       if (existingPhysician && existingPhysician.userId !== userId) {
-        const existingUser = users.find(u => u.id === existingPhysician.userId);
+        const existingUser = users.find((u: User) => u.id === existingPhysician.userId);
         toast({
           title: "Day Locked for MCPs",
           description: `This day is already claimed by MCP ${existingUser?.name || 'another physician'}. Only one MCP per day allowed.`,
@@ -340,9 +363,9 @@ export default function SchedulingDashboard() {
         return;
       }
     } else if (user.role === 'learner') {
-      const existingLearner = schedules.find(s => s.day === day && s.userRole === 'learner');
+      const existingLearner = schedules.find((s: any) => s.day === day && s.userRole === 'learner');
       if (existingLearner && existingLearner.userId !== userId) {
-        const existingUser = users.find(u => u.id === existingLearner.userId);
+        const existingUser = users.find((u: User) => u.id === existingLearner.userId);
         toast({
           title: "Day Locked for Learners",
           description: `This day is already claimed by learner ${existingUser?.name || 'another learner'}. Only one learner per day allowed.`,
@@ -352,80 +375,85 @@ export default function SchedulingDashboard() {
       }
     }
 
-    const existingSchedule = schedules.find(s => s.day === day && s.userId === userId);
+    const existingSchedule = schedules.find((s: any) => s.day === day && s.userId === userId);
     
     if (existingSchedule) {
-      // Remove the schedule
-      setSchedules(prev => prev.filter(s => s.id !== existingSchedule.id));
-      setUsers(prev => prev.map(u => 
-        u.id === userId 
-          ? { ...u, currentShiftCount: u.currentShiftCount - 1 }
-          : u
-      ));
-      toast({
-        title: "Shift Removed",
-        description: `${user.name} has been removed from ${currentMonth.split(' ')[0]} ${day}.`,
-      });
-    } else if (user.currentShiftCount < user.monthlyShiftLimit) {
-      // Add the schedule
-      const newSchedule = {
-        id: `s${Date.now()}`,
-        day,
-        userId: userId,
-        userName: user.name,
-        userRole: user.role,
-        status: 'scheduled' as const
-      };
-      setSchedules(prev => [...prev, newSchedule]);
-      setUsers(prev => prev.map(u => 
-        u.id === userId 
-          ? { ...u, currentShiftCount: u.currentShiftCount + 1 }
-          : u
-      ));
-      toast({
-        title: "Shift Added",
-        description: `${user.name} has been scheduled for ${currentMonth.split(' ')[0]} ${day}.`,
-      });
+      // Remove the schedule using API
+      try {
+        await deleteScheduleMutation.mutateAsync(existingSchedule.id);
+        toast({
+          title: "Shift Removed",
+          description: `${user.name} has been removed from ${currentMonth.split(' ')[0]} ${day}.`,
+        });
+      } catch (error) {
+        toast({
+          title: "Error",
+          description: "Failed to remove shift. Please try again.",
+          variant: "destructive"
+        });
+      }
     } else {
-      toast({
-        title: "Shift Limit Reached",
-        description: `${user.name} has reached the monthly limit of ${user.monthlyShiftLimit} shifts.`,
-        variant: "destructive"
-      });
+      // Check shift limit (this will be enforced by backend but checking here for UX)
+      const userShifts = schedules.filter((s: any) => s.userId === userId).length;
+      if (userShifts >= user.monthlyShiftLimit) {
+        toast({
+          title: "Shift Limit Reached",
+          description: `${user.name} has reached the monthly limit of ${user.monthlyShiftLimit} shifts.`,
+          variant: "destructive"
+        });
+        return;
+      }
+      
+      // Add the schedule using API
+      try {
+        await createScheduleMutation.mutateAsync({
+          month: selectedMonth,
+          year: selectedYear,
+          day,
+          userId: userId,
+        });
+        toast({
+          title: "Shift Added",
+          description: `${user.name} has been scheduled for ${currentMonth.split(' ')[0]} ${day}.`,
+        });
+      } catch (error) {
+        toast({
+          title: "Error",
+          description: "Failed to add shift. Please try again.",
+          variant: "destructive"
+        });
+      }
     }
   };
 
-
-  const handleAddUser = (userData: any) => {
-    const newUser = {
-      ...userData,
-      id: `user${Date.now()}`,
-      currentShiftCount: 0
-    };
-    setUsers(prev => [...prev, newUser]);
+  const handleAddUser = async (userData: any) => {
+    // This will need to be implemented with a proper user creation mutation
+    // For now, just show a placeholder message
     toast({
-      title: "User Added",
-      description: `${userData.name} has been added to the team.`,
+      title: "User Management",
+      description: "User management functionality will be implemented in the backend.",
     });
   };
 
-  const handleUpdateUser = (id: string, updates: any) => {
-    setUsers(prev => prev.map(u => u.id === id ? { ...u, ...updates } : u));
+  const handleUpdateUser = async (id: string, updates: any) => {
+    // This will need to be implemented with a proper user update mutation
+    // For now, just show a placeholder message
     toast({
-      title: "User Updated",
-      description: "User information has been updated.",
+      title: "User Management",
+      description: "User management functionality will be implemented in the backend.",
     });
   };
 
-  const handleDeleteUser = (id: string) => {
-    setUsers(prev => prev.filter(u => u.id !== id));
+  const handleDeleteUser = async (id: string) => {
+    // This will need to be implemented with a proper user delete mutation
+    // For now, just show a placeholder message
     toast({
-      title: "User Removed",
-      description: "User has been removed from the team.",
+      title: "User Management",
+      description: "User management functionality will be implemented in the backend.",
     });
   };
 
-  const handleConfirmTrade = (myScheduleId: string, theirScheduleId: string, tradingWithUserId: string) => {
+  const handleConfirmTrade = async (myScheduleId: string, theirScheduleId: string, tradingWithUserId: string) => {
     if (!activeMcpId) {
       toast({
         title: "No Active User Selected", 
@@ -436,27 +464,17 @@ export default function SchedulingDashboard() {
     }
 
     // Find the schedules and users
-    const mySchedule = schedules.find(s => s.id === myScheduleId);
-    const theirSchedule = schedules.find(s => s.id === theirScheduleId);
-    const tradingPartner = users.find(u => u.id === tradingWithUserId);
-    const activeUser = users.find(u => u.id === activeMcpId);
+    const mySchedule = schedules.find((s: any) => s.id === myScheduleId);
+    const theirSchedule = schedules.find((s: any) => s.id === theirScheduleId);
+    const tradingPartner = users.find((u: User) => u.id === tradingWithUserId);
+    const activeUser = users.find((u: User) => u.id === activeMcpId);
     
     if (!mySchedule || !theirSchedule || !tradingPartner || !activeUser) return;
 
-    // Swap the schedules
-    setSchedules(prev => prev.map(schedule => {
-      if (schedule.id === myScheduleId) {
-        return { ...schedule, userId: tradingWithUserId, userName: tradingPartner.name };
-      }
-      if (schedule.id === theirScheduleId) {
-        return { ...schedule, userId: activeMcpId, userName: activeUser.name };
-      }
-      return schedule;
-    }));
-
+    // This will need to be implemented with proper shift trade API calls
     toast({
-      title: "Trade Confirmed",
-      description: `You have successfully traded shifts with ${tradingPartner.name}.`,
+      title: "Shift Trading",
+      description: "Shift trading functionality will be fully implemented with backend support.",
     });
   };
 
@@ -553,7 +571,7 @@ export default function SchedulingDashboard() {
             <TableView 
               currentDate={new Date(selectedYear, selectedMonth - 1, 1)}
               schedules={schedules}
-              users={users}
+              users={users as any}
               activeMcpId={activeMcpId}
               onDayClick={handleDayClick}
             />
@@ -564,7 +582,7 @@ export default function SchedulingDashboard() {
               month={selectedMonth}
               year={selectedYear}
               schedules={schedules}
-              users={users}
+              users={users as any}
               currentUserId={activeMcpId || ''}
               onDayClick={handleDayClick}
             />
@@ -577,8 +595,8 @@ export default function SchedulingDashboard() {
                 <p className="text-muted-foreground">Confirm shifts you've already agreed to trade with colleagues</p>
               </div>
               <ConfirmTradeDialog 
-                users={users}
-                schedules={schedules.map(s => ({ ...s, month: 1, year: 2024 }))}
+                users={users as any}
+                schedules={schedules.map((s: any) => ({ ...s, month: 1, year: 2024 }))}
                 currentUserId={activeMcpId || ''}
                 onConfirmTrade={handleConfirmTrade}
               />
@@ -595,7 +613,7 @@ export default function SchedulingDashboard() {
 
           <TabsContent value="team">
             <UserManagement 
-              users={users}
+              users={users as any}
               onAddUser={handleAddUser}
               onUpdateUser={handleUpdateUser}
               onDeleteUser={handleDeleteUser}
@@ -605,7 +623,7 @@ export default function SchedulingDashboard() {
 
           <TabsContent value="admin">
               <AdminPanel 
-                users={users}
+                users={users as any}
                 schedules={schedules}
                 monthlySettings={monthlySettings}
                 onUpdateUserLimit={(id, limit) => handleUpdateUser(id, { monthlyShiftLimit: limit })}
