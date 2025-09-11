@@ -88,21 +88,43 @@ export default function SchedulingDashboard() {
 
   const handleExportPDF = () => {
     const doc = new jsPDF();
-    const currentDate = new Date(2024, 0, 1); // January 2024
-    const daysInMonth = new Date(2024, 1, 0).getDate(); // Get days in January
+    const currentDate = new Date(selectedYear, selectedMonth - 1, 1);
+    const daysInMonth = new Date(selectedYear, selectedMonth, 0).getDate();
+    
+    // Set light blue background
+    doc.setFillColor(230, 240, 250); // Light blue
+    doc.rect(0, 0, 210, 297, 'F'); // A4 page size
+    
+    // Add EHS LifeFlight logo (we'll use text for now since we don't have image embedding setup)
+    doc.setFontSize(18);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(0, 0, 0);
+    doc.text('EHS LifeFlight', 20, 20);
     
     // Add header
     doc.setFontSize(16);
-    doc.text('EHS LifeFlight Adult MCP Schedule', 20, 20);
+    doc.text('Adult MCP Self-Scheduler', 20, 30);
     doc.setFontSize(12);
-    doc.text(currentMonth, 20, 35);
+    doc.text(currentMonth, 20, 40);
+    
+    // Table setup with grid
+    const startY = 55;
+    const dayColX = 20;
+    const mcpColX = 60;
+    const learnerColX = 130;
+    const tableWidth = 170;
+    const rowHeight = 15;
+    
+    // Draw table border
+    doc.setDrawColor(0, 0, 0);
+    doc.setLineWidth(0.5);
+    doc.rect(15, startY - 5, tableWidth, (daysInMonth + 1) * rowHeight + 5);
+    
+    // Column separators
+    doc.line(45, startY - 5, 45, startY + (daysInMonth + 1) * rowHeight); // After Day column
+    doc.line(125, startY - 5, 125, startY + (daysInMonth + 1) * rowHeight); // After MCP column
     
     // Table headers
-    const startY = 50;
-    const dayColX = 20;
-    const mcpColX = 50;
-    const learnerColX = 120;
-    
     doc.setFontSize(10);
     doc.setFont('helvetica', 'bold');
     doc.text('Day', dayColX, startY);
@@ -110,8 +132,20 @@ export default function SchedulingDashboard() {
     doc.text('Learner', learnerColX, startY);
     
     // Draw header line
-    doc.line(15, startY + 2, 190, startY + 2);
+    doc.line(15, startY + 2, 185, startY + 2);
     
+    // Helper function to get user color (similar to TableView)
+    const getUserColor = (userId: string, userRole: string) => {
+      if (userRole === 'physician') {
+        const user = users.find(u => u.id === userId);
+        if (user?.name.includes('Sarah')) return { r: 34, g: 197, b: 94 }; // Green
+        if (user?.name.includes('Michael')) return { r: 139, g: 69, b: 19 }; // Brown
+        if (user?.name.includes('Emily')) return { r: 99, g: 102, b: 241 }; // Blue
+        return { r: 0, g: 0, b: 0 }; // Default black
+      }
+      return { r: 107, g: 114, b: 128 }; // Gray for learners
+    };
+
     // Table data
     doc.setFont('helvetica', 'normal');
     let currentY = startY + 10;
@@ -120,44 +154,67 @@ export default function SchedulingDashboard() {
       const mcpSchedule = schedules.find(s => s.day === day && s.userRole === 'physician');
       const learnerSchedule = schedules.find(s => s.day === day && s.userRole === 'learner');
       
+      // Draw row separator
+      if (day > 1) {
+        doc.setDrawColor(200, 200, 200);
+        doc.setLineWidth(0.2);
+        doc.line(15, currentY - 5, 185, currentY - 5);
+        doc.setDrawColor(0, 0, 0);
+        doc.setLineWidth(0.5);
+      }
+      
       // Day number
+      doc.setTextColor(0, 0, 0);
+      doc.setFontSize(10);
       doc.text(day.toString(), dayColX, currentY);
       
       // MCP column
       if (mcpSchedule) {
         const mcpUser = users.find(u => u.id === mcpSchedule.userId);
+        const color = getUserColor(mcpSchedule.userId, 'physician');
+        doc.setTextColor(color.r, color.g, color.b);
+        doc.setFont('helvetica', 'bold');
         doc.text(mcpSchedule.userName, mcpColX, currentY);
+        
         if (mcpUser?.phone) {
+          doc.setTextColor(100, 100, 100);
+          doc.setFont('helvetica', 'normal');
           doc.setFontSize(8);
           doc.text(mcpUser.phone, mcpColX, currentY + 4);
           doc.setFontSize(10);
         }
       } else {
         doc.setTextColor(150, 150, 150);
+        doc.setFont('helvetica', 'italic');
         doc.text('Available', mcpColX, currentY);
-        doc.setTextColor(0, 0, 0);
       }
       
-      // Learner column
+      // Learner column - only show if there's a learner scheduled (no "Available" text)
       if (learnerSchedule) {
         const learnerUser = users.find(u => u.id === learnerSchedule.userId);
+        const color = getUserColor(learnerSchedule.userId, 'learner');
+        doc.setTextColor(color.r, color.g, color.b);
+        doc.setFont('helvetica', 'bold');
         doc.text(learnerSchedule.userName, learnerColX, currentY);
+        
         if (learnerUser?.phone) {
+          doc.setTextColor(100, 100, 100);
+          doc.setFont('helvetica', 'normal');
           doc.setFontSize(8);
           doc.text(learnerUser.phone, learnerColX, currentY + 4);
           doc.setFontSize(10);
         }
-      } else {
-        doc.setTextColor(150, 150, 150);
-        doc.text('Available', learnerColX, currentY);
-        doc.setTextColor(0, 0, 0);
       }
+      // Note: No "Available" text for empty learner shifts as requested
       
-      currentY += (mcpSchedule?.userName || learnerSchedule?.userName) ? 12 : 8;
+      currentY += rowHeight;
       
       // Add new page if needed
       if (currentY > 270) {
         doc.addPage();
+        // Set background for new page
+        doc.setFillColor(230, 240, 250);
+        doc.rect(0, 0, 210, 297, 'F');
         currentY = 30;
       }
     }
