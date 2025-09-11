@@ -2,12 +2,6 @@ import { Button } from "@/components/ui/button";
 import { CalendarIcon, Settings, Share, Download } from "lucide-react";
 import logoImage from "@assets/IMG_4131_1757550683322.png";
 
-interface HeaderUser {
-  id: string;
-  name: string;
-  role: 'physician' | 'learner';
-}
-
 interface HeaderProps {
   currentMonth: string;
   onMonthChange: (month: string) => void;
@@ -15,9 +9,6 @@ interface HeaderProps {
   onShare: () => void;
   onSettings: () => void;
   isAdmin?: boolean;
-  users: HeaderUser[];
-  activeMcpId?: string;
-  onActiveMcpChange: (mcpId: string) => void;
 }
 
 export default function Header({ 
@@ -26,10 +17,7 @@ export default function Header({
   onExportPDF, 
   onShare, 
   onSettings, 
-  isAdmin = false,
-  users,
-  activeMcpId,
-  onActiveMcpChange
+  isAdmin = false
 }: HeaderProps) {
   const months = [
     "January 2024", "February 2024", "March 2024", "April 2024",
@@ -51,32 +39,7 @@ export default function Header({
           </div>
         </div>
 
-        <div className="flex items-center space-x-4 flex-wrap">
-          <div className="flex items-center space-x-2">
-            <label className="text-sm font-medium">Active User:</label>
-            <select 
-              value={activeMcpId || ''} 
-              onChange={(e) => onActiveMcpChange(e.target.value)}
-              className="px-3 py-2 border border-input rounded-md bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring min-w-48"
-              data-testid="select-active-user"
-            >
-              <option value="">Select Active User</option>
-              
-              {/* MCPs (Physicians) Section */}
-              {users.filter(user => user.role === 'physician').map(user => (
-                <option key={user.id} value={user.id}>{user.name}</option>
-              ))}
-              
-              {/* Learners Section */}
-              {users.filter(user => user.role === 'learner').length > 0 && (
-                <option disabled>───── LEARNERS ─────</option>
-              )}
-              {users.filter(user => user.role === 'learner').map(user => (
-                <option key={user.id} value={user.id}>{user.name}</option>
-              ))}
-            </select>
-          </div>
-
+        <div className="flex items-center space-x-4 flex-wrap justify-end">
           <select 
             value={currentMonth} 
             onChange={(e) => onMonthChange(e.target.value)}
