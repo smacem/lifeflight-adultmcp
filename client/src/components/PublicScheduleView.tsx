@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -40,6 +41,25 @@ export default function PublicScheduleView({
   const currentDate = new Date(year, month - 1, 1);
   const daysInMonth = getDaysInMonth(currentDate);
   const firstDayOfWeek = getDay(startOfMonth(currentDate));
+
+  // Prevent search engine indexing while allowing direct link access
+  useEffect(() => {
+    // Add noindex meta tag to prevent search engine indexing
+    const metaTag = document.createElement('meta');
+    metaTag.name = 'robots';
+    metaTag.content = 'noindex, nofollow';
+    document.head.appendChild(metaTag);
+
+    // Set page title for stakeholders
+    const originalTitle = document.title;
+    document.title = `EHS LifeFlight Schedule - ${format(currentDate, 'MMMM yyyy')} - Confidential`;
+
+    // Cleanup function to remove meta tag and restore title when component unmounts
+    return () => {
+      document.head.removeChild(metaTag);
+      document.title = originalTitle;
+    };
+  }, [currentDate]);
 
   const getSchedulesForDay = (day: number) => {
     return schedules.filter(s => s.day === day);
@@ -183,8 +203,8 @@ export default function PublicScheduleView({
                       </Badge>
                     </div>
                     <div className="flex items-center space-x-2 text-sm text-muted-foreground">
-                      <User className="w-3 h-3" />
-                      <span>Contact via LifeFlight</span>
+                      <Phone className="w-3 h-3" />
+                      <span>{physician.phone}</span>
                     </div>
                   </div>
                 ))}
@@ -212,8 +232,8 @@ export default function PublicScheduleView({
                       </Badge>
                     </div>
                     <div className="flex items-center space-x-2 text-sm text-muted-foreground">
-                      <User className="w-3 h-3" />
-                      <span>Contact via LifeFlight</span>
+                      <Phone className="w-3 h-3" />
+                      <span>{learner.phone}</span>
                     </div>
                   </div>
                 ))}
