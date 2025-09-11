@@ -362,7 +362,7 @@ export default function SchedulingDashboard() {
 
       <div className="container mx-auto px-6 py-6">
         <Tabs defaultValue="table" className="space-y-6">
-          <TabsList>
+          <TabsList className="bg-red-50">
             <TabsTrigger value="table" data-testid="tab-table">Table View</TabsTrigger>
             <TabsTrigger value="calendar" data-testid="tab-calendar">Calendar View</TabsTrigger>
             <TabsTrigger value="trades" data-testid="tab-trades">Shift Trades</TabsTrigger>
@@ -377,7 +377,7 @@ export default function SchedulingDashboard() {
               <select 
                 value={activeMcpId || ''} 
                 onChange={(e) => handleActiveMcpChange(e.target.value)}
-                className="px-3 py-2 border border-input rounded-md bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring min-w-48"
+                className="px-3 py-2 border border-input rounded-md bg-red-50 text-foreground focus:outline-none focus:ring-2 focus:ring-ring min-w-48"
                 data-testid="select-active-user"
               >
               <option value="">Select Active User</option>
@@ -402,7 +402,7 @@ export default function SchedulingDashboard() {
               <select 
                 value={currentMonth} 
                 onChange={(e) => handleMonthChange(e.target.value)}
-                className="px-3 py-2 border border-input rounded-md bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+                className="px-3 py-2 border border-input rounded-md bg-red-50 text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
                 data-testid="select-month"
               >
                 {[
