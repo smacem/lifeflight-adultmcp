@@ -355,15 +355,16 @@ export default function SchedulingDashboard() {
             <TabsTrigger value="admin" data-testid="tab-admin">Admin</TabsTrigger>
           </TabsList>
 
-          {/* Active User Selection - moved below tabs */}
-          <div className="flex items-center space-x-2 pt-2">
-            <label className="text-sm font-medium">Active User:</label>
-            <select 
-              value={activeMcpId || ''} 
-              onChange={(e) => handleActiveMcpChange(e.target.value)}
-              className="px-3 py-2 border border-input rounded-md bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring min-w-48"
-              data-testid="select-active-user"
-            >
+          {/* Active User Selection and Month Picker */}
+          <div className="flex items-center space-x-6 pt-2">
+            <div className="flex items-center space-x-2">
+              <label className="text-sm font-medium">Active User:</label>
+              <select 
+                value={activeMcpId || ''} 
+                onChange={(e) => handleActiveMcpChange(e.target.value)}
+                className="px-3 py-2 border border-input rounded-md bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring min-w-48"
+                data-testid="select-active-user"
+              >
               <option value="">Select Active User</option>
               
               {/* MCPs (Physicians) Section */}
@@ -379,6 +380,25 @@ export default function SchedulingDashboard() {
                 <option key={user.id} value={user.id}>{user.name}</option>
               ))}
             </select>
+            </div>
+            
+            <div className="flex items-center space-x-2">
+              <label className="text-sm font-medium">Month/Year:</label>
+              <select 
+                value={currentMonth} 
+                onChange={(e) => handleMonthChange(e.target.value)}
+                className="px-3 py-2 border border-input rounded-md bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+                data-testid="select-month"
+              >
+                {[
+                  "January 2024", "February 2024", "March 2024", "April 2024",
+                  "May 2024", "June 2024", "July 2024", "August 2024",
+                  "September 2024", "October 2024", "November 2024", "December 2024"
+                ].map(month => (
+                  <option key={month} value={month}>{month}</option>
+                ))}
+              </select>
+            </div>
           </div>
 
           <TabsContent value="table" className="space-y-6">
