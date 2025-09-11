@@ -3,7 +3,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import Header from "./Header";
 import CalendarGrid from "./CalendarGrid";
 import UserManagement from "./UserManagement";
-import ShiftTradeManager from "./ShiftTradeManager";
+import ConfirmTradeDialog from "./ConfirmTradeDialog";
 import AdminPanel from "./AdminPanel";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -146,13 +146,6 @@ export default function SchedulingDashboard() {
     }
   };
 
-  const handleTradeRequest = (scheduleId: string) => {
-    console.log('Trade request for schedule:', scheduleId);
-    toast({
-      title: "Trade Request",
-      description: "Trade request functionality will be implemented in the full app.",
-    });
-  };
 
   const handleAddUser = (userData: any) => {
     const newUser = {
@@ -180,6 +173,31 @@ export default function SchedulingDashboard() {
     toast({
       title: "User Removed",
       description: "User has been removed from the team.",
+    });
+  };
+
+  const handleConfirmTrade = (myScheduleId: string, theirScheduleId: string, tradingWithUserId: string) => {
+    // Find the schedules
+    const mySchedule = schedules.find(s => s.id === myScheduleId);
+    const theirSchedule = schedules.find(s => s.id === theirScheduleId);
+    const tradingPartner = users.find(u => u.id === tradingWithUserId);
+    
+    if (!mySchedule || !theirSchedule || !tradingPartner) return;
+
+    // Swap the schedules
+    setSchedules(prev => prev.map(schedule => {
+      if (schedule.id === myScheduleId) {
+        return { ...schedule, userId: tradingWithUserId, userName: tradingPartner.name };
+      }
+      if (schedule.id === theirScheduleId) {
+        return { ...schedule, userId: mockCurrentUser.id, userName: mockCurrentUser.name };
+      }
+      return schedule;
+    }));
+
+    toast({
+      title: "Trade Confirmed",
+      description: `You have successfully traded shifts with ${tradingPartner.name}.`,
     });
   };
 
@@ -221,20 +239,30 @@ export default function SchedulingDashboard() {
               users={users}
               currentUserId={mockCurrentUser.id}
               onDayClick={handleDayClick}
-              onTradeRequest={handleTradeRequest}
             />
           </TabsContent>
 
-          <TabsContent value="trades">
-            <ShiftTradeManager 
-              tradeRequests={tradeRequests}
-              users={users}
-              currentUserId={mockCurrentUser.id}
-              onApproveTradeRequest={(id) => console.log('Approve trade:', id)}
-              onRejectTradeRequest={(id) => console.log('Reject trade:', id)}
-              onCreateTradeRequest={(from, to, schedule) => console.log('Create trade:', { from, to, schedule })}
-              schedules={schedules.map(s => ({ ...s, month: 1, year: 2024 }))}
-            />
+          <TabsContent value="trades" className="space-y-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="text-2xl font-bold">Shift Trading</h2>
+                <p className="text-muted-foreground">Confirm shifts you've already agreed to trade with colleagues</p>
+              </div>
+              <ConfirmTradeDialog 
+                users={users}
+                schedules={schedules.map(s => ({ ...s, month: 1, year: 2024 }))}
+                currentUserId={mockCurrentUser.id}
+                onConfirmTrade={handleConfirmTrade}
+              />
+            </div>
+
+            {/* Recent Trades */}
+            <div className="space-y-4">
+              <h3 className="text-lg font-semibold">Recent Trades</h3>
+              <div className="text-center py-8 text-muted-foreground">
+                No recent trades. Use "Confirm Trade" above to execute agreed-upon shift swaps.
+              </div>
+            </div>
           </TabsContent>
 
           <TabsContent value="team">

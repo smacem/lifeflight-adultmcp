@@ -1,5 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { CalendarIcon, Settings, Share, Download } from "lucide-react";
+import logoImage from "@assets/IMG_4131_1757550683322.png";
 
 interface HeaderProps {
   currentMonth: string;
@@ -29,10 +30,11 @@ export default function Header({
       <div className="flex items-center justify-between">
         <div className="flex items-center space-x-6">
           <div className="flex items-center space-x-3">
-            <div className="text-2xl font-bold">
-              <span className="text-primary">EHS</span>
-              <span className="text-destructive ml-1">LifeFlight</span>
-            </div>
+            <img 
+              src={logoImage} 
+              alt="EHS LifeFlight Logo" 
+              className="h-10 w-auto"
+            />
             <div className="text-sm text-muted-foreground">
               Adult MCP Self-Scheduler
             </div>

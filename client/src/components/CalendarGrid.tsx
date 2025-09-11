@@ -29,7 +29,6 @@ interface CalendarGridProps {
   users: CalendarUser[];
   currentUserId?: string;
   onDayClick: (day: number) => void;
-  onTradeRequest?: (scheduleId: string) => void;
   isPublicView?: boolean;
 }
 
@@ -40,7 +39,6 @@ export default function CalendarGrid({
   users,
   currentUserId,
   onDayClick,
-  onTradeRequest,
   isPublicView = false
 }: CalendarGridProps) {
   const [selectedDay, setSelectedDay] = useState<number | null>(null);
@@ -102,28 +100,13 @@ export default function CalendarGrid({
           
           <div className="mt-1 space-y-1">
             {daySchedules.map((schedule) => (
-              <div key={schedule.id} className="flex items-center justify-between">
-                <Badge 
-                  variant={schedule.userRole === 'physician' ? 'default' : 'secondary'}
-                  className="text-xs truncate max-w-20"
-                >
-                  {schedule.userName}
-                </Badge>
-                {!isPublicView && onTradeRequest && schedule.userId !== currentUserId && (
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="h-5 px-1 text-xs"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onTradeRequest(schedule.id);
-                    }}
-                    data-testid={`button-trade-${schedule.id}`}
-                  >
-                    Trade
-                  </Button>
-                )}
-              </div>
+              <Badge 
+                key={schedule.id}
+                variant={schedule.userRole === 'physician' ? 'default' : 'secondary'}
+                className="text-xs truncate w-full block"
+              >
+                {schedule.userName}
+              </Badge>
             ))}
           </div>
 

@@ -3,6 +3,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Download, Phone, User } from "lucide-react";
 import { format, getDaysInMonth, startOfMonth, getDay } from "date-fns";
+import logoImage from "@assets/IMG_4131_1757550683322.png";
 
 interface PublicUser {
   id: string;
@@ -96,10 +97,11 @@ export default function PublicScheduleView({
       <header className="bg-white border-b border-border px-6 py-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-3">
-            <div className="text-2xl font-bold">
-              <span className="text-primary">EHS</span>
-              <span className="text-destructive ml-1">LifeFlight</span>
-            </div>
+            <img 
+              src={logoImage} 
+              alt="EHS LifeFlight Logo" 
+              className="h-10 w-auto"
+            />
             <div className="text-sm text-muted-foreground">
               Adult MCP Schedule - {getMonthName(month)} {year}
             </div>
