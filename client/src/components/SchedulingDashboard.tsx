@@ -106,47 +106,68 @@ export default function SchedulingDashboard() {
   };
 
   const handleDayClick = (day: number) => {
-    const user = users.find(u => u.id === mockCurrentUser.id);
-    if (!user) return;
+    // Use active MCP instead of current user for scheduling
+    const userId = activeMcpId || mockCurrentUser.id;
+    const user = users.find(u => u.id === userId);
+    if (!user) {
+      toast({
+        title: "No Active MCP Selected", 
+        description: "Please select an Active MCP to schedule shifts.",
+        variant: "destructive"
+      });
+      return;
+    }
 
-    const existingSchedule = schedules.find(s => s.day === day && s.userId === user.id);
+    // Check if day is already locked by another physician
+    const existingPhysician = schedules.find(s => s.day === day && s.userRole === 'physician');
+    if (existingPhysician && existingPhysician.userId !== userId) {
+      const existingUser = users.find(u => u.id === existingPhysician.userId);
+      toast({
+        title: "Day Locked",
+        description: `This day is already claimed by ${existingUser?.name || 'another physician'}. Only one physician per day allowed.`,
+        variant: "destructive"
+      });
+      return;
+    }
+
+    const existingSchedule = schedules.find(s => s.day === day && s.userId === userId);
     
     if (existingSchedule) {
       // Remove the schedule
       setSchedules(prev => prev.filter(s => s.id !== existingSchedule.id));
       setUsers(prev => prev.map(u => 
-        u.id === user.id 
+        u.id === userId 
           ? { ...u, currentShiftCount: u.currentShiftCount - 1 }
           : u
       ));
       toast({
         title: "Shift Removed",
-        description: `You have been removed from ${currentMonth.split(' ')[0]} ${day}.`,
+        description: `${user.name} has been removed from ${currentMonth.split(' ')[0]} ${day}.`,
       });
     } else if (user.currentShiftCount < user.monthlyShiftLimit) {
       // Add the schedule
       const newSchedule = {
         id: `s${Date.now()}`,
         day,
-        userId: user.id,
+        userId: userId,
         userName: user.name,
         userRole: user.role,
         status: 'scheduled' as const
       };
       setSchedules(prev => [...prev, newSchedule]);
       setUsers(prev => prev.map(u => 
-        u.id === user.id 
+        u.id === userId 
           ? { ...u, currentShiftCount: u.currentShiftCount + 1 }
           : u
       ));
       toast({
         title: "Shift Added",
-        description: `You have been scheduled for ${currentMonth.split(' ')[0]} ${day}.`,
+        description: `${user.name} has been scheduled for ${currentMonth.split(' ')[0]} ${day}.`,
       });
     } else {
       toast({
         title: "Shift Limit Reached",
-        description: `You have reached your monthly limit of ${user.monthlyShiftLimit} shifts.`,
+        description: `${user.name} has reached the monthly limit of ${user.monthlyShiftLimit} shifts.`,
         variant: "destructive"
       });
     }
