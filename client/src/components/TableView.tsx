@@ -134,11 +134,9 @@ export default function TableView({
                 <Badge className={`w-full justify-center ${getUserColor(learnerSchedule.userId, learnerSchedule.userRole)}`}>
                   {learnerSchedule.userName}
                 </Badge>
-                {!isPublicView && (
-                  <div className="text-xs text-muted-foreground">
-                    {users.find(u => u.id === learnerSchedule.userId)?.phone || 'No phone'}
-                  </div>
-                )}
+                <div className="text-xs text-muted-foreground">
+                  {users.find(u => u.id === learnerSchedule.userId)?.phone || 'No phone'}
+                </div>
               </div>
             ) : (
               <div className="text-muted-foreground italic">Available</div>
