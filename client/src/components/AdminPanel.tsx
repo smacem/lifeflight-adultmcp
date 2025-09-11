@@ -41,27 +41,13 @@ export default function AdminPanel({
   onSaveSettings
 }: AdminPanelProps) {
   const [localSettings, setLocalSettings] = useState(monthlySettings);
-  const [userLimits, setUserLimits] = useState<Record<string, number>>(
-    users.reduce((acc, user) => ({
-      ...acc,
-      [user.id]: user.monthlyShiftLimit
-    }), {})
-  );
-
   const handleLimitChange = (userId: string, value: string) => {
-    // Allow empty string during editing, convert to number on blur/enter
+    // Convert to number and clamp between 0-31
     const numericValue = value === '' ? 0 : parseInt(value) || 0;
-    setUserLimits(prev => ({
-      ...prev,
-      [userId]: Math.min(31, Math.max(0, numericValue)) // Clamp between 0-31
-    }));
-  };
-
-  const applyLimitChanges = () => {
-    Object.entries(userLimits).forEach(([userId, limit]) => {
-      onUpdateUserLimit(userId, limit);
-    });
-    onSaveSettings();
+    const clampedValue = Math.min(31, Math.max(0, numericValue));
+    
+    // Update immediately
+    onUpdateUserLimit(userId, clampedValue);
   };
 
   const handlePublishToggle = (isPublished: boolean) => {
@@ -81,24 +67,17 @@ export default function AdminPanel({
   };
 
   const UserLimitCard = ({ user }: { user: User }) => {
-    const currentLimit = userLimits[user.id];
-    const hasChanged = currentLimit !== user.monthlyShiftLimit;
 
     return (
-      <Card className={`hover-elevate ${hasChanged ? 'border-primary' : ''}`}>
+      <Card className="hover-elevate">
         <CardContent className="p-4">
-          <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center justify-start gap-3 mb-3">
             <div>
               <div className="font-medium">{user.name}</div>
               <Badge variant={user.role === 'physician' ? 'default' : 'secondary'} className="text-xs">
                 {user.role}
               </Badge>
             </div>
-            {hasChanged && (
-              <Badge variant="outline" className="text-xs">
-                Changed
-              </Badge>
-            )}
           </div>
 
           <div className="space-y-2">
@@ -110,7 +89,7 @@ export default function AdminPanel({
               type="number"
               min="0"
               max="31"
-              value={currentLimit}
+              value={user.monthlyShiftLimit}
               onChange={(e) => handleLimitChange(user.id, e.target.value)}
               className="w-20"
               data-testid={`input-limit-${user.id}`}
@@ -131,10 +110,6 @@ export default function AdminPanel({
           <Settings className="w-5 h-5" />
           <h2 className="text-2xl font-bold">Admin Panel</h2>
         </div>
-        <Button onClick={applyLimitChanges} data-testid="button-save-settings">
-          <Save className="w-4 h-4 mr-2" />
-          Save Changes
-        </Button>
       </div>
 
       {/* Schedule Publishing Settings */}
