@@ -4,6 +4,9 @@ import PublicScheduleView from "./PublicScheduleView";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { AlertTriangle, Loader2 } from "lucide-react";
+import jsPDF from 'jspdf';
+import logoImage from '@assets/IMG_4131_1757550683322.png';
+import { useToast } from "@/hooks/use-toast";
 
 interface PublicScheduleData {
   schedules: Array<{
@@ -26,6 +29,7 @@ interface PublicScheduleData {
 export default function PublicScheduleContainer() {
   const params = useParams();
   const token = params.token;
+  const { toast } = useToast();
 
   const { data: publicData, isLoading, error } = useQuery<PublicScheduleData>({
     queryKey: ['/api/public', token],
@@ -78,8 +82,169 @@ export default function PublicScheduleContainer() {
   }
 
   const handleExportPDF = () => {
-    // TODO: Implement public PDF export
-    console.log('Export public PDF');
+    if (!publicData) return;
+    
+    const doc = new jsPDF();
+    const daysInMonth = new Date(publicData.settings.year, publicData.settings.month, 0).getDate();
+    
+    // Helper function to center text
+    const centerText = (text: string, x: number, y: number) => {
+      const textWidth = doc.getTextWidth(text);
+      doc.text(text, x - (textWidth / 2), y);
+    };
+    
+    // Get month name
+    const getMonthName = (monthNumber: number) => {
+      const monthNames = [
+        'January', 'February', 'March', 'April', 'May', 'June',
+        'July', 'August', 'September', 'October', 'November', 'December'
+      ];
+      return monthNames[monthNumber - 1];
+    };
+    
+    // Page background - blue
+    doc.setFillColor(135, 185, 215);
+    doc.rect(0, 0, 210, 297, 'F');
+    
+    // Logo
+    try {
+      doc.addImage(logoImage, 'PNG', 15, 10, 30, 20);
+    } catch {
+      doc.setFontSize(14);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(0, 0, 0);
+      doc.text('EHS LifeFlight', 15, 20);
+    }
+    
+    // Title and subtitle
+    doc.setFontSize(18);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(0, 0, 0);
+    doc.text('Adult MCP Schedule', 50, 20);
+    doc.setFontSize(12);
+    doc.setFont('helvetica', 'normal');
+    doc.text(`${getMonthName(publicData.settings.month)} ${publicData.settings.year}`, 50, 30);
+    
+    // TABLE LAYOUT
+    const TABLE_START_Y = 50;
+    const TABLE_LEFT = 15;
+    const TABLE_WIDTH = 180;
+    
+    // Column definitions
+    const COL_DAY_WIDTH = 30;
+    const COL_MCP_WIDTH = 90;
+    const COL_LEARNER_WIDTH = 60;
+    
+    // Column positions (left edges)
+    const COL_DAY_X = TABLE_LEFT;
+    const COL_MCP_X = COL_DAY_X + COL_DAY_WIDTH;
+    const COL_LEARNER_X = COL_MCP_X + COL_MCP_WIDTH;
+    
+    // Column centers (for text centering)
+    const COL_DAY_CENTER = COL_DAY_X + (COL_DAY_WIDTH / 2);
+    const COL_MCP_CENTER = COL_MCP_X + (COL_MCP_WIDTH / 2);
+    const COL_LEARNER_CENTER = COL_LEARNER_X + (COL_LEARNER_WIDTH / 2);
+    
+    // Row setup
+    const HEADER_HEIGHT = 12;
+    const ROW_HEIGHT = Math.max(8, Math.floor(210 / (daysInMonth + 1))); // Smaller rows since no phone numbers
+    const TABLE_HEIGHT = HEADER_HEIGHT + (daysInMonth * ROW_HEIGHT);
+    
+    // DRAW TABLE STRUCTURE
+    // Table background
+    doc.setFillColor(255, 235, 235);
+    doc.rect(TABLE_LEFT, TABLE_START_Y, TABLE_WIDTH, TABLE_HEIGHT, 'F');
+    
+    // Table border
+    doc.setDrawColor(0, 0, 0);
+    doc.setLineWidth(1);
+    doc.rect(TABLE_LEFT, TABLE_START_Y, TABLE_WIDTH, TABLE_HEIGHT);
+    
+    // Column dividers
+    doc.line(COL_MCP_X, TABLE_START_Y, COL_MCP_X, TABLE_START_Y + TABLE_HEIGHT);
+    doc.line(COL_LEARNER_X, TABLE_START_Y, COL_LEARNER_X, TABLE_START_Y + TABLE_HEIGHT);
+    
+    // Header divider
+    doc.line(TABLE_LEFT, TABLE_START_Y + HEADER_HEIGHT, TABLE_LEFT + TABLE_WIDTH, TABLE_START_Y + HEADER_HEIGHT);
+    
+    // HEADER ROW
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(0, 0, 0);
+    
+    const headerY = TABLE_START_Y + (HEADER_HEIGHT / 2) + 2;
+    centerText('Day', COL_DAY_CENTER, headerY);
+    centerText('Physician', COL_MCP_CENTER, headerY);
+    centerText('Learner', COL_LEARNER_CENTER, headerY);
+    
+    // Get color for users (simplified for public view)
+    const getUserColor = (userId: string, role: string) => {
+      if (role === 'physician') {
+        const user = publicData.users.find((u: any) => u.id === userId);
+        if (user?.name.includes('Sarah')) return { r: 34, g: 197, b: 94 };
+        if (user?.name.includes('Michael')) return { r: 139, g: 69, b: 19 };
+        if (user?.name.includes('Emily')) return { r: 99, g: 102, b: 241 };
+        return { r: 0, g: 0, b: 0 };
+      }
+      return { r: 107, g: 114, b: 128 };
+    };
+    
+    // TABLE ROWS
+    for (let day = 1; day <= daysInMonth; day++) {
+      const rowY = TABLE_START_Y + HEADER_HEIGHT + (day * ROW_HEIGHT);
+      const textY = rowY - (ROW_HEIGHT / 2) + 2; // Center vertically in row
+      
+      // Row divider (light gray)
+      if (day > 1) {
+        doc.setDrawColor(200, 200, 200);
+        doc.setLineWidth(0.3);
+        doc.line(TABLE_LEFT, rowY - ROW_HEIGHT, TABLE_LEFT + TABLE_WIDTH, rowY - ROW_HEIGHT);
+        doc.setDrawColor(0, 0, 0);
+      }
+      
+      // Day number
+      doc.setFontSize(9);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(0, 0, 0);
+      centerText(day.toString(), COL_DAY_CENTER, textY);
+      
+      // MCP column
+      const mcpSchedule = publicData.schedules.find((s: any) => s.day === day && s.userRole === 'physician');
+      if (mcpSchedule) {
+        const color = getUserColor(mcpSchedule.userId, 'physician');
+        doc.setTextColor(color.r, color.g, color.b);
+        doc.setFont('helvetica', 'bold');
+        centerText(mcpSchedule.userName, COL_MCP_CENTER, textY);
+      } else {
+        doc.setTextColor(150, 150, 150);
+        doc.setFont('helvetica', 'italic');
+        doc.setFontSize(8);
+        centerText('Available', COL_MCP_CENTER, textY);
+      }
+      
+      // Learner column
+      const learnerSchedule = publicData.schedules.find((s: any) => s.day === day && s.userRole === 'learner');
+      if (learnerSchedule) {
+        const color = getUserColor(learnerSchedule.userId, 'learner');
+        doc.setTextColor(color.r, color.g, color.b);
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(9);
+        centerText(learnerSchedule.userName, COL_LEARNER_CENTER, textY);
+      } else {
+        doc.setTextColor(150, 150, 150);
+        doc.setFont('helvetica', 'italic');
+        doc.setFontSize(8);
+        centerText('Available', COL_LEARNER_CENTER, textY);
+      }
+    }
+    
+    // Download the PDF
+    doc.save(`EHS-LifeFlight-Schedule-${getMonthName(publicData.settings.month)}-${publicData.settings.year}.pdf`);
+    
+    toast({
+      title: "Schedule Exported",
+      description: `Adult MCP Schedule for ${getMonthName(publicData.settings.month)} ${publicData.settings.year} exported successfully.`,
+    });
   };
 
   return (
