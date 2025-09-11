@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import { format, getDaysInMonth, startOfMonth, getDay } from "date-fns";
 
@@ -12,6 +13,15 @@ interface CalendarUser {
   monthlyShiftLimit: number;
   currentShiftCount: number;
 }
+
+// Helper function to get user initials
+const getUserInitials = (name: string): string => {
+  const parts = name.split(' ');
+  if (parts.length >= 2) {
+    return `${parts[0][0]}${parts[parts.length - 1][0]}`.toUpperCase();
+  }
+  return name.slice(0, 2).toUpperCase();
+};
 
 interface CalendarSchedule {
   id: string;
@@ -76,7 +86,7 @@ export default function CalendarGrid({
     
     // Empty cells for days before the first day of the month
     for (let i = 0; i < firstDayOfWeek; i++) {
-      days.push(<div key={`empty-${i}`} className="h-24"></div>);
+      days.push(<div key={`empty-${i}`} className="h-32"></div>);
     }
     
     // Calendar days
@@ -89,25 +99,42 @@ export default function CalendarGrid({
         <div
           key={day}
           className={cn(
-            "h-24 border border-border p-2 hover-elevate cursor-pointer relative",
+            "h-32 border border-border p-2 hover-elevate cursor-pointer relative",
             selectedDay === day && "ring-2 ring-ring",
             isUserDay && "bg-primary/10 border-primary/30"
           )}
           onClick={() => handleDayClick(day)}
           data-testid={`calendar-day-${day}`}
         >
-          <div className="font-medium text-sm">{day}</div>
+          <div className="font-medium text-sm mb-2">{day}</div>
           
-          <div className="mt-1 space-y-1">
-            {daySchedules.map((schedule) => (
-              <Badge 
-                key={schedule.id}
-                variant={schedule.userRole === 'physician' ? 'default' : 'secondary'}
-                className="text-xs truncate w-full block"
-              >
-                {schedule.userName}
-              </Badge>
-            ))}
+          <div className="space-y-1">
+            {daySchedules.map((schedule) => {
+              const user = users.find(u => u.id === schedule.userId);
+              const initials = getUserInitials(schedule.userName);
+              
+              return (
+                <TooltipProvider key={schedule.id}>
+                  <Tooltip>
+                    <TooltipTrigger>
+                      <Badge 
+                        variant={schedule.userRole === 'physician' ? 'default' : 'secondary'}
+                        className="text-xs px-2 py-1 cursor-help flex items-center justify-center min-w-8 h-6"
+                      >
+                        {initials}
+                      </Badge>
+                    </TooltipTrigger>
+                    <TooltipContent side="top" className="max-w-xs">
+                      <div className="text-sm">
+                        <div className="font-medium">{schedule.userName}</div>
+                        <div className="text-muted-foreground">{user?.phone || 'No phone'}</div>
+                        <div className="text-xs text-muted-foreground capitalize">{schedule.userRole}</div>
+                      </div>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              );
+            })}
           </div>
 
           {/* Availability indicator */}
