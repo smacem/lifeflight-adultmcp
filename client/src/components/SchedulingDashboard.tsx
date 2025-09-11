@@ -119,8 +119,10 @@ export default function SchedulingDashboard() {
     // Table setup with dynamic scaling for full month
     const startY = 55;
     const dayColX = 15;
-    const mcpColX = 45;
-    const learnerColX = 115;
+    const dayWidth = 30;
+    const mcpWidth = 80;
+    const mcpColX = dayColX + dayWidth; // 45
+    const learnerColX = mcpColX + mcpWidth; // 125
     const tableWidth = 180;
     const maxTableHeight = 230; // Leave space for header and footer
     const rowHeight = Math.max(8, Math.min(12, Math.floor(maxTableHeight / (daysInMonth + 1)))); // Better min/max row height
@@ -136,8 +138,8 @@ export default function SchedulingDashboard() {
     doc.rect(15, startY - 5, tableWidth, actualTableHeight + 5);
     
     // Column separators
-    doc.line(45, startY - 5, 45, startY + actualTableHeight); // After Day column
-    doc.line(125, startY - 5, 125, startY + actualTableHeight); // After MCP column
+    doc.line(mcpColX, startY - 5, mcpColX, startY + actualTableHeight); // After Day column
+    doc.line(learnerColX, startY - 5, learnerColX, startY + actualTableHeight); // After MCP column
     
     // Table headers
     const headerFontSize = Math.max(9, Math.min(11, rowHeight * 0.9));
@@ -149,7 +151,7 @@ export default function SchedulingDashboard() {
     doc.text('Learner', learnerColX + 2, startY);
     
     // Draw header line
-    doc.line(15, startY + 2, 185, startY + 2);
+    doc.line(15, startY + 2, 195, startY + 2);
     
     // Helper function to get user color (similar to TableView)
     const getUserColor = (userId: string, userRole: string) => {
@@ -165,7 +167,7 @@ export default function SchedulingDashboard() {
 
     // Table data
     doc.setFont('helvetica', 'normal');
-    let currentY = startY + 10;
+    let currentY = startY + rowHeight;
     
     for (let day = 1; day <= daysInMonth; day++) {
       const mcpSchedule = schedules.find(s => s.day === day && s.userRole === 'physician');
