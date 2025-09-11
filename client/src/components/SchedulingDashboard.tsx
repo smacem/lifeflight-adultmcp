@@ -83,6 +83,37 @@ export default function SchedulingDashboard() {
     queryKey: ['/api/shift-trades'],
     staleTime: 30 * 1000, // 30 seconds
   });
+
+  // User management mutations
+  const createUserMutation = useMutation({
+    mutationFn: async (userData: any) => {
+      const response = await apiRequest('POST', '/api/users', userData);
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/users'] });
+    }
+  });
+
+  const updateUserMutation = useMutation({
+    mutationFn: async ({ id, userData }: { id: string, userData: any }) => {
+      const response = await apiRequest('PUT', `/api/users/${id}`, userData);
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/users'] });
+    }
+  });
+
+  const deleteUserMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const response = await apiRequest('DELETE', `/api/users/${id}`);
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/users'] });
+    }
+  });
   
   // Create schedule mutation
   const createScheduleMutation = useMutation({
@@ -427,30 +458,51 @@ export default function SchedulingDashboard() {
   };
 
   const handleAddUser = async (userData: any) => {
-    // This will need to be implemented with a proper user creation mutation
-    // For now, just show a placeholder message
-    toast({
-      title: "User Management",
-      description: "User management functionality will be implemented in the backend.",
-    });
+    try {
+      await createUserMutation.mutateAsync(userData);
+      toast({
+        title: "Team Member Added",
+        description: `${userData.name} has been successfully added to the team.`,
+      });
+    } catch (error: any) {
+      toast({
+        title: "Error Adding Team Member",
+        description: error.message || "Failed to add team member. Please try again.",
+        variant: "destructive"
+      });
+    }
   };
 
   const handleUpdateUser = async (id: string, updates: any) => {
-    // This will need to be implemented with a proper user update mutation
-    // For now, just show a placeholder message
-    toast({
-      title: "User Management",
-      description: "User management functionality will be implemented in the backend.",
-    });
+    try {
+      await updateUserMutation.mutateAsync({ id, userData: updates });
+      toast({
+        title: "Team Member Updated",
+        description: "Team member information has been successfully updated.",
+      });
+    } catch (error: any) {
+      toast({
+        title: "Error Updating Team Member",
+        description: error.message || "Failed to update team member. Please try again.",
+        variant: "destructive"
+      });
+    }
   };
 
   const handleDeleteUser = async (id: string) => {
-    // This will need to be implemented with a proper user delete mutation
-    // For now, just show a placeholder message
-    toast({
-      title: "User Management",
-      description: "User management functionality will be implemented in the backend.",
-    });
+    try {
+      await deleteUserMutation.mutateAsync(id);
+      toast({
+        title: "Team Member Removed",
+        description: "Team member has been successfully removed from the system.",
+      });
+    } catch (error: any) {
+      toast({
+        title: "Error Removing Team Member",
+        description: error.message || "Failed to remove team member. Please try again.",
+        variant: "destructive"
+      });
+    }
   };
 
   const handleConfirmTrade = async (myScheduleId: string, theirScheduleId: string, tradingWithUserId: string) => {

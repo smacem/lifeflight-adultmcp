@@ -80,6 +80,38 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.delete("/api/users/:id", async (req, res) => {
+    try {
+      const userId = uuidParamSchema.parse(req.params.id);
+      
+      // Check if user exists
+      const existingUser = await storage.getUser(userId);
+      if (!existingUser) {
+        return res.status(404).json({ error: "User not found" });
+      }
+      
+      // Check if user has any scheduled shifts
+      const userSchedules = await storage.getUserSchedules(userId);
+      if (userSchedules.length > 0) {
+        return res.status(409).json({ 
+          error: "Cannot delete user with existing scheduled shifts. Please remove all shifts first." 
+        });
+      }
+      
+      await storage.deleteUser(userId);
+      res.status(200).json({ message: "User deleted successfully" });
+    } catch (error) {
+      if (error instanceof ZodError) {
+        return res.status(400).json({ 
+          error: "Invalid user ID", 
+          details: error.errors.map(e => ({ field: e.path.join('.'), message: e.message }))
+        });
+      }
+      console.error("Error deleting user:", error);
+      res.status(500).json({ error: "Failed to delete user" });
+    }
+  });
+
   // Schedules endpoints
   app.get("/api/schedules", async (req, res) => {
     try {

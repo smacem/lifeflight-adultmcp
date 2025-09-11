@@ -11,6 +11,8 @@ export interface IStorage {
   createUser(user: InsertUser): Promise<User>;
   getAllUsers(): Promise<User[]>;
   updateUser(id: string, updates: Partial<InsertUser>): Promise<User | undefined>;
+  deleteUser(id: string): Promise<boolean>;
+  getUserSchedules(userId: string): Promise<Schedule[]>;
   
   getSchedule(id: string): Promise<Schedule | undefined>;
   getSchedulesForMonth(month: number, year: number): Promise<Schedule[]>;
@@ -73,6 +75,16 @@ export class MemStorage implements IStorage {
     const updatedUser = { ...user, ...updates };
     this.users.set(id, updatedUser);
     return updatedUser;
+  }
+
+  async deleteUser(id: string): Promise<boolean> {
+    return this.users.delete(id);
+  }
+
+  async getUserSchedules(userId: string): Promise<Schedule[]> {
+    return Array.from(this.schedules.values()).filter(
+      (schedule) => schedule.userId === userId
+    );
   }
 
   async getSchedule(id: string): Promise<Schedule | undefined> {
@@ -249,6 +261,18 @@ export class DatabaseStorage implements IStorage {
       .where(eq(users.id, id))
       .returning();
     return user || undefined;
+  }
+
+  async deleteUser(id: string): Promise<boolean> {
+    const result = await db.delete(users).where(eq(users.id, id));
+    return result.rowCount > 0;
+  }
+
+  async getUserSchedules(userId: string): Promise<Schedule[]> {
+    return await db
+      .select()
+      .from(schedules)
+      .where(eq(schedules.userId, userId));
   }
 
   async getSchedule(id: string): Promise<Schedule | undefined> {
