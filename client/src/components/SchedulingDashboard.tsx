@@ -161,9 +161,9 @@ export default function SchedulingDashboard() {
   };
 
   const handleShare = () => {
-    // TODO: remove mock functionality
-    const mockShareLink = `https://scheduler.ehs.com/public/${monthlySettings.publicShareToken}`;
-    setShareLink(mockShareLink);
+    // Generate simplified stakeholder-friendly link
+    const simpleShareLink = `scheduler.ehs.com/view/${monthlySettings.publicShareToken}`;
+    setShareLink(simpleShareLink);
     setShareDialogOpen(true);
   };
 
@@ -417,18 +417,35 @@ export default function SchedulingDashboard() {
 
       {/* Share Dialog */}
       <Dialog open={shareDialogOpen} onOpenChange={setShareDialogOpen}>
-        <DialogContent>
+        <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle>Share Schedule</DialogTitle>
+            <DialogTitle>Share Schedule with Stakeholders</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
-            <p className="text-sm text-muted-foreground">
-              Share this link to give read-only access to the {currentMonth} schedule:
-            </p>
+            <div className="text-center">
+              <p className="text-sm text-muted-foreground mb-3">
+                Share this simple link for view-only access to {currentMonth}:
+              </p>
+              <div className="bg-accent/10 p-4 rounded-md">
+                <div className="text-lg font-medium text-primary mb-2">
+                  {shareLink}
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Read-only • No login required
+                </p>
+              </div>
+            </div>
             <div className="flex space-x-2">
-              <Input value={shareLink} readOnly className="font-mono text-sm" />
-              <Button onClick={copyShareLink} data-testid="button-copy-link">
-                Copy
+              <Button onClick={copyShareLink} className="flex-1" data-testid="button-copy-link">
+                <Share className="w-4 h-4 mr-2" />
+                Copy Link
+              </Button>
+              <Button 
+                variant="outline" 
+                onClick={() => setShareDialogOpen(false)}
+                data-testid="button-close-share"
+              >
+                Done
               </Button>
             </div>
           </div>
