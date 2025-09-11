@@ -53,15 +53,25 @@ export default function Header({
 
         <div className="flex items-center space-x-4 flex-wrap">
           <div className="flex items-center space-x-2">
-            <label className="text-sm font-medium">Active MCP:</label>
+            <label className="text-sm font-medium">Active User:</label>
             <select 
               value={activeMcpId || ''} 
               onChange={(e) => onActiveMcpChange(e.target.value)}
               className="px-3 py-2 border border-input rounded-md bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring min-w-48"
-              data-testid="select-active-mcp"
+              data-testid="select-active-user"
             >
-              <option value="">Select MCP</option>
+              <option value="">Select Active User</option>
+              
+              {/* MCPs (Physicians) Section */}
               {users.filter(user => user.role === 'physician').map(user => (
+                <option key={user.id} value={user.id}>{user.name}</option>
+              ))}
+              
+              {/* Learners Section */}
+              {users.filter(user => user.role === 'learner').length > 0 && (
+                <option disabled>───── LEARNERS ─────</option>
+              )}
+              {users.filter(user => user.role === 'learner').map(user => (
                 <option key={user.id} value={user.id}>{user.name}</option>
               ))}
             </select>

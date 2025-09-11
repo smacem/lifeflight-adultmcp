@@ -177,28 +177,41 @@ export default function SchedulingDashboard() {
   };
 
   const handleDayClick = (day: number) => {
-    // Use active MCP instead of current user for scheduling
+    // Use active user (can be MCP or learner) instead of current user for scheduling
     const userId = activeMcpId || mockCurrentUser.id;
     const user = users.find(u => u.id === userId);
     if (!user) {
       toast({
-        title: "No Active MCP Selected", 
-        description: "Please select an Active MCP to schedule shifts.",
+        title: "No Active User Selected", 
+        description: "Please select an Active User to schedule shifts.",
         variant: "destructive"
       });
       return;
     }
 
-    // Check if day is already locked by another physician
-    const existingPhysician = schedules.find(s => s.day === day && s.userRole === 'physician');
-    if (existingPhysician && existingPhysician.userId !== userId) {
-      const existingUser = users.find(u => u.id === existingPhysician.userId);
-      toast({
-        title: "Day Locked",
-        description: `This day is already claimed by ${existingUser?.name || 'another physician'}. Only one physician per day allowed.`,
-        variant: "destructive"
-      });
-      return;
+    // Check if day is already locked by another person of the same role
+    if (user.role === 'physician') {
+      const existingPhysician = schedules.find(s => s.day === day && s.userRole === 'physician');
+      if (existingPhysician && existingPhysician.userId !== userId) {
+        const existingUser = users.find(u => u.id === existingPhysician.userId);
+        toast({
+          title: "Day Locked for MCPs",
+          description: `This day is already claimed by MCP ${existingUser?.name || 'another physician'}. Only one MCP per day allowed.`,
+          variant: "destructive"
+        });
+        return;
+      }
+    } else if (user.role === 'learner') {
+      const existingLearner = schedules.find(s => s.day === day && s.userRole === 'learner');
+      if (existingLearner && existingLearner.userId !== userId) {
+        const existingUser = users.find(u => u.id === existingLearner.userId);
+        toast({
+          title: "Day Locked for Learners",
+          description: `This day is already claimed by learner ${existingUser?.name || 'another learner'}. Only one learner per day allowed.`,
+          variant: "destructive"
+        });
+        return;
+      }
     }
 
     const existingSchedule = schedules.find(s => s.day === day && s.userId === userId);
