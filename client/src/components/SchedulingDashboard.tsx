@@ -111,7 +111,7 @@ export default function SchedulingDashboard() {
     doc.setFontSize(16);
     doc.setFont('helvetica', 'bold');
     doc.setTextColor(0, 0, 0);
-    doc.text('Adult MCP Self-Scheduler', 50, 20);
+    doc.text('Adult MCP Schedule', 50, 20);
     doc.setFontSize(12);
     doc.setFont('helvetica', 'normal');
     doc.text(currentMonth, 50, 30);
@@ -150,8 +150,10 @@ export default function SchedulingDashboard() {
     // Calculate column centers for text alignment
     const dayColCenter = dayColX + (dayWidth / 2);
     const mcpColCenter = mcpColX + (mcpWidth / 2);
-    const learnerColCenter = learnerColX + ((tableWidth - learnerColX) / 2);
+    const learnerWidth = tableWidth - dayWidth - mcpWidth; // Consistent width calculation
+    const learnerColCenter = learnerColX + (learnerWidth / 2);
     
+    // Use jsPDF's proper text alignment - text is centered at the x position
     doc.text('Day', dayColCenter, startY, { align: 'center' });
     doc.text('MCP (Physician)', mcpColCenter, startY, { align: 'center' });
     doc.text('Learner', learnerColCenter, startY, { align: 'center' });
