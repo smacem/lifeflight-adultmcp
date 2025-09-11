@@ -2,7 +2,9 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ArrowRightLeft } from "lucide-react";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Label } from "@/components/ui/label";
+import { ArrowRightLeft, Gift, HandHeart } from "lucide-react";
 import { format } from "date-fns";
 
 interface User {
@@ -34,6 +36,7 @@ export default function ConfirmTradeDialog({
   onConfirmTrade
 }: ConfirmTradeDialogProps) {
   const [isOpen, setIsOpen] = useState(false);
+  const [operationType, setOperationType] = useState<'trade' | 'give' | 'take'>('trade');
   const [selectedMySchedule, setSelectedMySchedule] = useState("");
   const [selectedTradingPartner, setSelectedTradingPartner] = useState("");
   const [selectedTheirSchedule, setSelectedTheirSchedule] = useState("");
@@ -43,11 +46,13 @@ export default function ConfirmTradeDialog({
   const tradingPartnerSchedules = schedules.filter(s => s.userId === selectedTradingPartner);
 
   const handleConfirmTrade = () => {
-    if (selectedMySchedule && selectedTheirSchedule && selectedTradingPartner) {
+    const isValidTrade = operationType === 'trade' && selectedMySchedule && selectedTheirSchedule && selectedTradingPartner;
+    const isValidGive = operationType === 'give' && selectedMySchedule && selectedTradingPartner;
+    const isValidTake = operationType === 'take' && selectedTheirSchedule && selectedTradingPartner;
+    
+    if (isValidTrade || isValidGive || isValidTake) {
       onConfirmTrade(selectedMySchedule, selectedTheirSchedule, selectedTradingPartner);
-      setSelectedMySchedule("");
-      setSelectedTheirSchedule("");
-      setSelectedTradingPartner("");
+      resetForm();
       setIsOpen(false);
     }
   };
@@ -56,6 +61,7 @@ export default function ConfirmTradeDialog({
     setSelectedMySchedule("");
     setSelectedTheirSchedule("");
     setSelectedTradingPartner("");
+    setOperationType('trade');
   };
 
   return (
@@ -66,36 +72,69 @@ export default function ConfirmTradeDialog({
       <DialogTrigger asChild>
         <Button data-testid="button-confirm-trade">
           <ArrowRightLeft className="w-4 h-4 mr-2" />
-          Confirm Trade
+          Shift Actions
         </Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Confirm Shift Trade</DialogTitle>
+          <DialogTitle>Shift Actions</DialogTitle>
         </DialogHeader>
         <div className="space-y-4">
-          <p className="text-sm text-muted-foreground">
-            Use this to confirm a trade that you have already agreed upon with a colleague.
-          </p>
-          
           <div>
-            <label className="text-sm font-medium">Your Shift to Give</label>
-            <Select value={selectedMySchedule} onValueChange={setSelectedMySchedule}>
-              <SelectTrigger data-testid="select-my-shift-trade">
-                <SelectValue placeholder="Select your shift" />
-              </SelectTrigger>
-              <SelectContent>
-                {mySchedules.map(schedule => (
-                  <SelectItem key={schedule.id} value={schedule.id}>
-                    {format(new Date(schedule.year, schedule.month - 1, schedule.day), 'EEEE, MMMM dd, yyyy')}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <label className="text-sm font-medium mb-3 block">Action Type</label>
+            <RadioGroup value={operationType} onValueChange={(value: 'trade' | 'give' | 'take') => {
+              setOperationType(value);
+              // Reset form fields but preserve operation type
+              setSelectedMySchedule("");
+              setSelectedTheirSchedule("");
+              setSelectedTradingPartner("");
+            }}>
+              <div className="flex items-center space-x-2">
+                <RadioGroupItem value="trade" id="trade" />
+                <Label htmlFor="trade" className="flex items-center">
+                  <ArrowRightLeft className="w-4 h-4 mr-1" />
+                  Trade shifts
+                </Label>
+              </div>
+              <div className="flex items-center space-x-2">
+                <RadioGroupItem value="give" id="give" />
+                <Label htmlFor="give" className="flex items-center">
+                  <Gift className="w-4 h-4 mr-1" />
+                  Give a shift
+                </Label>
+              </div>
+              <div className="flex items-center space-x-2">
+                <RadioGroupItem value="take" id="take" />
+                <Label htmlFor="take" className="flex items-center">
+                  <HandHeart className="w-4 h-4 mr-1" />
+                  Take a shift
+                </Label>
+              </div>
+            </RadioGroup>
           </div>
+          
+          {(operationType === 'trade' || operationType === 'give') && (
+            <div>
+              <label className="text-sm font-medium">Your Shift to Give</label>
+              <Select value={selectedMySchedule} onValueChange={setSelectedMySchedule}>
+                <SelectTrigger data-testid="select-my-shift-trade">
+                  <SelectValue placeholder="Select your shift" />
+                </SelectTrigger>
+                <SelectContent>
+                  {mySchedules.map(schedule => (
+                    <SelectItem key={schedule.id} value={schedule.id}>
+                      {format(new Date(schedule.year, schedule.month - 1, schedule.day), 'EEEE, MMMM dd, yyyy')}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
 
           <div>
-            <label className="text-sm font-medium">Trading With</label>
+            <label className="text-sm font-medium">
+              {operationType === 'trade' ? 'Trading With' : operationType === 'give' ? 'Give To' : 'Take From'}
+            </label>
             <Select 
               value={selectedTradingPartner} 
               onValueChange={(value) => {
@@ -116,9 +155,11 @@ export default function ConfirmTradeDialog({
             </Select>
           </div>
 
-          {selectedTradingPartner && (
+          {selectedTradingPartner && (operationType === 'trade' || operationType === 'take') && (
             <div>
-              <label className="text-sm font-medium">Their Shift to Receive</label>
+              <label className="text-sm font-medium">
+                {operationType === 'trade' ? 'Your Shift to Receive' : 'Shift to Take'}
+              </label>
               <Select value={selectedTheirSchedule} onValueChange={setSelectedTheirSchedule}>
                 <SelectTrigger data-testid="select-their-shift-trade">
                   <SelectValue placeholder="Select their shift" />
@@ -134,19 +175,43 @@ export default function ConfirmTradeDialog({
             </div>
           )}
 
-          {selectedMySchedule && selectedTheirSchedule && selectedTradingPartner && (
+          {((operationType === 'trade' && selectedMySchedule && selectedTheirSchedule && selectedTradingPartner) ||
+            (operationType === 'give' && selectedMySchedule && selectedTradingPartner) ||
+            (operationType === 'take' && selectedTheirSchedule && selectedTradingPartner)) && (
             <div className="p-3 bg-muted rounded-lg">
-              <div className="text-sm font-medium mb-2">Trade Summary:</div>
+              <div className="text-sm font-medium mb-2">
+                {operationType === 'trade' ? 'Trade Summary:' : operationType === 'give' ? 'Give Summary:' : 'Take Summary:'}
+              </div>
               <div className="text-sm text-muted-foreground">
-                You give: {(() => {
-                  const mySchedule = mySchedules.find(s => s.id === selectedMySchedule);
-                  return mySchedule ? format(new Date(mySchedule.year, mySchedule.month - 1, mySchedule.day), 'MMM dd') : '';
-                })()}
-                <br />
-                You receive: {(() => {
-                  const theirSchedule = tradingPartnerSchedules.find(s => s.id === selectedTheirSchedule);
-                  return theirSchedule ? format(new Date(theirSchedule.year, theirSchedule.month - 1, theirSchedule.day), 'MMM dd') : '';
-                })()}
+                {operationType === 'trade' && (
+                  <>
+                    You give: {(() => {
+                      const mySchedule = mySchedules.find(s => s.id === selectedMySchedule);
+                      return mySchedule ? format(new Date(mySchedule.year, mySchedule.month - 1, mySchedule.day), 'MMM dd') : '';
+                    })()}
+                    <br />
+                    You receive: {(() => {
+                      const theirSchedule = tradingPartnerSchedules.find(s => s.id === selectedTheirSchedule);
+                      return theirSchedule ? format(new Date(theirSchedule.year, theirSchedule.month - 1, theirSchedule.day), 'MMM dd') : '';
+                    })()}
+                  </>
+                )}
+                {operationType === 'give' && (
+                  <>
+                    You give: {(() => {
+                      const mySchedule = mySchedules.find(s => s.id === selectedMySchedule);
+                      return mySchedule ? format(new Date(mySchedule.year, mySchedule.month - 1, mySchedule.day), 'MMM dd') : '';
+                    })()} to {users.find(u => u.id === selectedTradingPartner)?.name}
+                  </>
+                )}
+                {operationType === 'take' && (
+                  <>
+                    You take: {(() => {
+                      const theirSchedule = tradingPartnerSchedules.find(s => s.id === selectedTheirSchedule);
+                      return theirSchedule ? format(new Date(theirSchedule.year, theirSchedule.month - 1, theirSchedule.day), 'MMM dd') : '';
+                    })()} from {users.find(u => u.id === selectedTradingPartner)?.name}
+                  </>
+                )}
               </div>
             </div>
           )}
@@ -158,10 +223,14 @@ export default function ConfirmTradeDialog({
           </Button>
           <Button 
             onClick={handleConfirmTrade}
-            disabled={!selectedMySchedule || !selectedTheirSchedule || !selectedTradingPartner}
+            disabled={
+              (operationType === 'trade' && (!selectedMySchedule || !selectedTheirSchedule || !selectedTradingPartner)) ||
+              (operationType === 'give' && (!selectedMySchedule || !selectedTradingPartner)) ||
+              (operationType === 'take' && (!selectedTheirSchedule || !selectedTradingPartner))
+            }
             data-testid="button-execute-trade"
           >
-            Execute Trade
+            {operationType === 'trade' ? 'Execute Trade' : operationType === 'give' ? 'Give Shift' : 'Take Shift'}
           </Button>
         </div>
       </DialogContent>

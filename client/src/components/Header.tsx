@@ -39,21 +39,19 @@ export default function Header({
 
   return (
     <header className="bg-white border-b border-border px-6 py-4">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center space-x-6">
-          <div className="flex items-center space-x-3">
-            <img 
-              src={logoImage} 
-              alt="EHS LifeFlight Logo" 
-              className="h-10 w-auto"
-            />
-            <div className="text-sm text-muted-foreground">
-              Adult MCP Self-Scheduler
-            </div>
+      <div className="flex items-center justify-between gap-6">
+        <div className="flex items-center space-x-3 min-w-0 flex-shrink-0">
+          <img 
+            src={logoImage} 
+            alt="EHS LifeFlight Logo" 
+            className="h-10 w-auto"
+          />
+          <div className="text-sm text-muted-foreground whitespace-nowrap">
+            Adult MCP Self-Scheduler
           </div>
         </div>
 
-        <div className="flex items-center space-x-4">
+        <div className="flex items-center space-x-4 flex-wrap">
           <div className="flex items-center space-x-2">
             <label className="text-sm font-medium">Active MCP:</label>
             <select 
@@ -84,6 +82,7 @@ export default function Header({
             variant="outline" 
             size="sm" 
             onClick={onShare}
+            className="border-red-200 text-red-600"
             data-testid="button-share"
           >
             <Share className="w-4 h-4 mr-2" />
@@ -94,6 +93,7 @@ export default function Header({
             variant="outline" 
             size="sm" 
             onClick={onExportPDF}
+            className="border-red-200 text-red-600"
             data-testid="button-export-pdf"
           >
             <Download className="w-4 h-4 mr-2" />
@@ -105,6 +105,7 @@ export default function Header({
               variant="outline" 
               size="sm" 
               onClick={onSettings}
+              className="border-red-200 text-red-600"
               data-testid="button-admin-settings"
             >
               <Settings className="w-4 h-4 mr-2" />
