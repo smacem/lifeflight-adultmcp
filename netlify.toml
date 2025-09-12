@@ -1,9 +1,16 @@
 [build]
   command = "npm install --legacy-peer-deps && npm run build"
-  publish = "dist/public"
+  publish = "dist/public"   # keep this if your index.html ends up in dist/public
 
+# 1) API proxy to Replit (must be BEFORE the SPA redirect)
+[[redirects]]
+  from = "/api/*"
+  to = "https://EHS-LifeFlight-Adult-MCP-Schedule.replit.app/api/:splat"
+  status = 200
+  force = true
+
+# 2) SPA fallback so client routes don’t 404
 [[redirects]]
   from = "/*"
   to = "/index.html"
   status = 200
-  
