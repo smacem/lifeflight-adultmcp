@@ -131,6 +131,7 @@ export default function SchedulingDashboard() {
   // Shift trade mutations
   const executeTradeMutation = useMutation({
     mutationFn: async ({ scheduleId, toUserId }: { scheduleId: string; toUserId: string }) => {
+      console.log('🔥 executeTradeMutation called:', { scheduleId, toUserId });
       const response = await apiRequest('POST', '/api/execute-trade', { 
         myScheduleId: scheduleId, 
         targetUserId: toUserId 
@@ -616,6 +617,7 @@ export default function SchedulingDashboard() {
   };
 
   const handleConfirmTrade = (scheduleId: string, targetUserId: string) => {
+    console.log('🚀 handleConfirmTrade called:', { scheduleId, targetUserId });
     executeTradeMutation.mutate({ scheduleId, toUserId: targetUserId });
   };
 

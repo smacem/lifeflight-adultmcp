@@ -77,7 +77,7 @@ export default function ConfirmTradeDialog({
       <DialogTrigger asChild>
         <Button data-testid="button-confirm-trade">
           <ArrowRightLeft className="w-4 h-4 mr-2" />
-          Shift Actions
+          Execute Trade
         </Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-md">
