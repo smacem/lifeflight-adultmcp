@@ -739,7 +739,11 @@ export default function SchedulingDashboard() {
               </div>
               <ConfirmTradeDialog 
                 users={users as any}
-                schedules={schedules.map((s: any) => ({ ...s, month: selectedMonth, year: selectedYear }))}
+                schedules={schedules.map((s: any) => ({ 
+                  ...s, 
+                  month: selectedMonth, 
+                  year: selectedYear 
+                }))}
                 currentUserId={activeMcpId || ''}
                 onConfirmTrade={handleConfirmTrade}
               />
@@ -750,7 +754,7 @@ export default function SchedulingDashboard() {
               <h3 className="text-lg font-semibold">Trade History</h3>
               {tradeRequests.length === 0 ? (
                 <div className="text-center py-8 text-muted-foreground">
-                  No recent trades. Use "Confirm Trade" above to initiate shift exchanges.
+                  No recent trades. Use "Execute Trade" above to initiate immediate shift exchanges.
                 </div>
               ) : (
                 <div className="space-y-3">
