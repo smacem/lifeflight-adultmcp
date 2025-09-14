@@ -5,7 +5,6 @@ import Header from "./Header";
 import CalendarGrid from "./CalendarGrid";
 import TableView from "./TableView";
 import UserManagement from "./UserManagement";
-import ConfirmTradeDialog from "./ConfirmTradeDialog";
 import AdminPanel from "./AdminPanel";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -15,7 +14,7 @@ import { Share } from 'lucide-react';
 import jsPDF from 'jspdf';
 import logoImage from "@assets/IMG_4131_1757550683322.png";
 import { apiRequest } from "@/lib/queryClient";
-import type { User, Schedule, ShiftTrade } from "@shared/schema";
+import type { User, Schedule } from "@shared/schema";
 
 export default function SchedulingDashboard() {
   // Initialize with current month
@@ -79,11 +78,6 @@ export default function SchedulingDashboard() {
     };
   });
 
-  // Fetch shift trades with proper typing
-  const { data: tradeRequests = [] } = useQuery<ShiftTrade[]>({
-    queryKey: ['/api/shift-trades'],
-    staleTime: 30 * 1000, // 30 seconds
-  });
 
   // User management mutations
   const createUserMutation = useMutation({
@@ -128,25 +122,6 @@ export default function SchedulingDashboard() {
     },
   });
 
-  // Shift trade mutations
-  const executeTradeMutation = useMutation({
-    mutationFn: async ({ scheduleId, toUserId }: { scheduleId: string; toUserId: string }) => {
-      console.log('🔥 executeTradeMutation called:', { scheduleId, toUserId });
-      const response = await apiRequest('POST', '/api/execute-trade', { 
-        myScheduleId: scheduleId, 
-        targetUserId: toUserId 
-      });
-      return response.json();
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/schedules'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/users'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/shift-trades'] });
-      toast({ title: "Trade Executed", description: "The shift trade has been completed successfully." });
-    },
-  });
-
-  // Note: updateTradeMutation removed since trades are now immediate
 
   // Delete schedule mutation
   const deleteScheduleMutation = useMutation({
@@ -616,10 +591,6 @@ export default function SchedulingDashboard() {
     }
   };
 
-  const handleConfirmTrade = (scheduleId: string, targetUserId: string) => {
-    console.log('🚀 handleConfirmTrade called:', { scheduleId, targetUserId });
-    executeTradeMutation.mutate({ scheduleId, toUserId: targetUserId });
-  };
 
   const copyShareLink = () => {
     navigator.clipboard.writeText(shareLink);
@@ -645,7 +616,6 @@ export default function SchedulingDashboard() {
           <TabsList className="bg-red-50">
             <TabsTrigger value="table" data-testid="tab-table">Table View</TabsTrigger>
             <TabsTrigger value="calendar" data-testid="tab-calendar">Calendar View</TabsTrigger>
-            <TabsTrigger value="trades" data-testid="tab-trades">Shift Trades</TabsTrigger>
             <TabsTrigger value="team" data-testid="tab-team">Team</TabsTrigger>
             <TabsTrigger value="admin" data-testid="tab-admin">Admin</TabsTrigger>
           </TabsList>
@@ -731,78 +701,6 @@ export default function SchedulingDashboard() {
             />
           </TabsContent>
 
-          <TabsContent value="trades" className="space-y-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <h2 className="text-2xl font-bold">Shift Trading</h2>
-                <p className="text-muted-foreground">Confirm shifts you've already agreed to trade with colleagues</p>
-              </div>
-              <ConfirmTradeDialog 
-                users={users as any}
-                schedules={schedules.map((s: any) => ({ 
-                  ...s, 
-                  month: selectedMonth, 
-                  year: selectedYear 
-                }))}
-                currentUserId={activeMcpId || ''}
-                onConfirmTrade={handleConfirmTrade}
-              />
-            </div>
-
-            {/* Recent Trades */}
-            <div className="space-y-4">
-              <h3 className="text-lg font-semibold">Trade History</h3>
-              {tradeRequests.length === 0 ? (
-                <div className="text-center py-8 text-muted-foreground">
-                  No recent trades. Use "Execute Trade" above to initiate immediate shift exchanges.
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  {tradeRequests.map((trade: any) => {
-                    const fromUser = users.find((u: User) => u.id === trade.fromUserId);
-                    const toUser = users.find((u: User) => u.id === trade.toUserId);
-                    const schedule = schedules.find((s: any) => s.id === trade.scheduleId);
-                    const isMyRequest = trade.fromUserId === activeMcpId;
-                    // Note: No more pending status since trades are immediate
-                    
-                    return (
-                      <div key={trade.id} className="border border-border rounded-lg p-4 hover-elevate">
-                        <div className="flex items-center justify-between mb-3">
-                          <div className="flex items-center space-x-2">
-                            <Badge variant={
-                              trade.status === 'approved' ? 'default' : 
-                              trade.status === 'rejected' ? 'destructive' : 
-                              'secondary'
-                            }>
-                              {trade.status}
-                            </Badge>
-                            <span className="text-sm text-muted-foreground">
-                              {new Date(trade.createdAt).toLocaleDateString()}
-                            </span>
-                          </div>
-                          {/* Approval buttons removed - trades are now immediate */}
-                        </div>
-                        <div className="text-sm">
-                          <span className="font-medium">{fromUser?.name}</span> wants to trade with{' '}
-                          <span className="font-medium">{toUser?.name}</span>
-                          {schedule && (
-                            <span className="text-muted-foreground ml-2">
-                              (Day {schedule.day})
-                            </span>
-                          )}
-                        </div>
-                        {isMyRequest && (
-                          <div className="text-xs text-muted-foreground mt-1">
-                            Your request to {toUser?.name}
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-          </TabsContent>
 
           <TabsContent value="team">
             <UserManagement 
