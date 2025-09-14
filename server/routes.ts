@@ -6,7 +6,9 @@ import {
   insertScheduleSchema, 
   insertMonthlySettingsSchema,
   monthYearQuerySchema,
-  uuidParamSchema
+  uuidParamSchema,
+  reassignScheduleSchema,
+  swapSchedulesSchema
 } from "@shared/schema";
 import { ZodError } from "zod";
 
@@ -194,6 +196,160 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
 
 
+
+  // Immediate trade operations
+  app.post("/api/schedules/reassign", async (req, res) => {
+    try {
+      const { scheduleId, toUserId } = reassignScheduleSchema.parse(req.body);
+      
+      // Check if schedule exists
+      const schedule = await storage.getSchedule(scheduleId);
+      if (!schedule) {
+        return res.status(404).json({ error: "Schedule not found" });
+      }
+      
+      // Check if target user exists and is active
+      const targetUser = await storage.getUser(toUserId);
+      if (!targetUser) {
+        return res.status(404).json({ error: "Target user not found" });
+      }
+      if (!targetUser.isActive) {
+        return res.status(409).json({ error: "Target user is not active" });
+      }
+      
+      // Check if target user is the same as current user
+      if (schedule.userId === toUserId) {
+        return res.status(409).json({ error: "Cannot reassign schedule to the same user" });
+      }
+      
+      // Create a temporary schedule object to validate constraints for the new user
+      const tempSchedule = {
+        month: schedule.month,
+        year: schedule.year,
+        day: schedule.day,
+        userId: toUserId,
+        status: schedule.status
+      };
+      
+      // Validate that reassignment won't violate constraints (exclude the schedule being reassigned)
+      const validationResult = await storage.validateScheduleConstraints(tempSchedule, [scheduleId]);
+      if (!validationResult.isValid) {
+        return res.status(409).json({ error: validationResult.error });
+      }
+      
+      // Update the schedule with the new user
+      const updatedSchedule = await storage.updateSchedule(scheduleId, { userId: toUserId });
+      if (!updatedSchedule) {
+        return res.status(500).json({ error: "Failed to update schedule" });
+      }
+      
+      res.json({ message: "Schedule reassigned successfully", schedule: updatedSchedule });
+    } catch (error) {
+      if (error instanceof ZodError) {
+        return res.status(400).json({ 
+          error: "Validation failed", 
+          details: error.errors.map(e => ({ field: e.path.join('.'), message: e.message }))
+        });
+      }
+      console.error("Error reassigning schedule:", error);
+      res.status(500).json({ error: "Failed to reassign schedule" });
+    }
+  });
+
+  app.post("/api/schedules/swap", async (req, res) => {
+    try {
+      const { scheduleIdA, scheduleIdB } = swapSchedulesSchema.parse(req.body);
+      
+      // Check if both schedules exist
+      const [scheduleA, scheduleB] = await Promise.all([
+        storage.getSchedule(scheduleIdA),
+        storage.getSchedule(scheduleIdB)
+      ]);
+      
+      if (!scheduleA) {
+        return res.status(404).json({ error: "First schedule not found" });
+      }
+      if (!scheduleB) {
+        return res.status(404).json({ error: "Second schedule not found" });
+      }
+      
+      // Check if schedules belong to different users
+      if (scheduleA.userId === scheduleB.userId) {
+        return res.status(409).json({ error: "Cannot swap schedules belonging to the same user" });
+      }
+      
+      // Get both users to validate they are active
+      const [userA, userB] = await Promise.all([
+        storage.getUser(scheduleA.userId),
+        storage.getUser(scheduleB.userId)
+      ]);
+      
+      if (!userA || !userB) {
+        return res.status(404).json({ error: "One or both users not found" });
+      }
+      if (!userA.isActive || !userB.isActive) {
+        return res.status(409).json({ error: "One or both users are not active" });
+      }
+      
+      // Create temporary schedule objects to validate constraints after swap
+      const tempScheduleA = {
+        month: scheduleA.month,
+        year: scheduleA.year,
+        day: scheduleA.day,
+        userId: scheduleB.userId, // User B gets schedule A's date
+        status: scheduleA.status
+      };
+      
+      const tempScheduleB = {
+        month: scheduleB.month,
+        year: scheduleB.year,
+        day: scheduleB.day,
+        userId: scheduleA.userId, // User A gets schedule B's date
+        status: scheduleB.status
+      };
+      
+      // Validate both swapped schedules won't violate constraints (exclude both schedules being swapped)
+      const [validationA, validationB] = await Promise.all([
+        storage.validateScheduleConstraints(tempScheduleA, [scheduleIdA, scheduleIdB]),
+        storage.validateScheduleConstraints(tempScheduleB, [scheduleIdA, scheduleIdB])
+      ]);
+      
+      if (!validationA.isValid) {
+        return res.status(409).json({ 
+          error: `Swap would violate constraints for ${userB.name}: ${validationA.error}` 
+        });
+      }
+      if (!validationB.isValid) {
+        return res.status(409).json({ 
+          error: `Swap would violate constraints for ${userA.name}: ${validationB.error}` 
+        });
+      }
+      
+      // Perform the atomic swap by updating both schedules
+      const [updatedScheduleA, updatedScheduleB] = await Promise.all([
+        storage.updateSchedule(scheduleIdA, { userId: scheduleB.userId }),
+        storage.updateSchedule(scheduleIdB, { userId: scheduleA.userId })
+      ]);
+      
+      if (!updatedScheduleA || !updatedScheduleB) {
+        return res.status(500).json({ error: "Failed to swap schedules" });
+      }
+      
+      res.json({ 
+        message: "Schedules swapped successfully", 
+        schedules: [updatedScheduleA, updatedScheduleB] 
+      });
+    } catch (error) {
+      if (error instanceof ZodError) {
+        return res.status(400).json({ 
+          error: "Validation failed", 
+          details: error.errors.map(e => ({ field: e.path.join('.'), message: e.message }))
+        });
+      }
+      console.error("Error swapping schedules:", error);
+      res.status(500).json({ error: "Failed to swap schedules" });
+    }
+  });
 
   // Monthly settings endpoints
   app.get("/api/monthly-settings", async (req, res) => {

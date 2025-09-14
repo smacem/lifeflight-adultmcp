@@ -1,4 +1,4 @@
-import { type User, type InsertUser, type Schedule, type InsertSchedule, type ShiftTrade, type InsertShiftTrade, type MonthlySettings, type InsertMonthlySettings } from "@shared/schema";
+import { type User, type InsertUser, type Schedule, type InsertSchedule, type MonthlySettings, type InsertMonthlySettings } from "@shared/schema";
 import { randomUUID } from "crypto";
 import { sql } from "drizzle-orm";
 
@@ -18,26 +18,11 @@ export interface IStorage {
   getSchedulesForMonth(month: number, year: number): Promise<Schedule[]>;
   createSchedule(schedule: InsertSchedule): Promise<Schedule>;
   deleteSchedule(id: string): Promise<boolean>;
-  getMonthlyScheduleCount(userId: string, month: number, year: number): Promise<number>;
-  validateScheduleConstraints(schedule: InsertSchedule): Promise<{ isValid: boolean; error?: string }>;
+  getMonthlyScheduleCount(userId: string, month: number, year: number, excludeScheduleIds?: string[]): Promise<number>;
+  validateScheduleConstraints(schedule: InsertSchedule, excludeScheduleIds?: string[]): Promise<{ isValid: boolean; error?: string }>;
   
-  getShiftTrade(id: string): Promise<ShiftTrade | undefined>;
-  createShiftTrade(trade: InsertShiftTrade): Promise<ShiftTrade>;
-  getShiftTrades(): Promise<ShiftTrade[]>;
-  getPendingTradesForSchedule(scheduleId: string): Promise<ShiftTrade[]>;
-  updateShiftTrade(id: string, status: 'approved' | 'rejected' | 'cancelled'): Promise<ShiftTrade | undefined>;
-  executeShiftTrade(tradeId: string): Promise<void>;
-  
-  // Immediate trade execution methods
-  executeScheduleSwap(schedule1Id: string, schedule2Id: string): Promise<void>;
-  transferSchedule(scheduleId: string, newUserId: string): Promise<void>;
-  createTradeAuditRecord(tradeData: {
-    fromUserId: string;
-    toUserId: string;
-    scheduleId: string;
-    targetScheduleId: string | null;
-    type: 'swap' | 'transfer';
-  }): Promise<void>;
+  updateSchedule(id: string, updates: Partial<InsertSchedule>): Promise<Schedule | undefined>;
+  getSchedulesForDay(month: number, year: number, day: number): Promise<Schedule[]>;
   
   // Monthly settings management
   getMonthlySettings(month: number, year: number): Promise<MonthlySettings | undefined>;
@@ -48,12 +33,10 @@ export interface IStorage {
 export class MemStorage implements IStorage {
   private users: Map<string, User>;
   private schedules: Map<string, Schedule>;
-  private shiftTrades: Map<string, ShiftTrade>;
 
   constructor() {
     this.users = new Map();
     this.schedules = new Map();
-    this.shiftTrades = new Map();
   }
 
   async getUser(id: string): Promise<User | undefined> {
@@ -113,13 +96,16 @@ export class MemStorage implements IStorage {
     );
   }
 
-  async getMonthlyScheduleCount(userId: string, month: number, year: number): Promise<number> {
+  async getMonthlyScheduleCount(userId: string, month: number, year: number, excludeScheduleIds?: string[]): Promise<number> {
     return Array.from(this.schedules.values()).filter(
-      schedule => schedule.userId === userId && schedule.month === month && schedule.year === year
+      schedule => schedule.userId === userId && 
+                 schedule.month === month && 
+                 schedule.year === year &&
+                 (!excludeScheduleIds || !excludeScheduleIds.includes(schedule.id))
     ).length;
   }
 
-  async validateScheduleConstraints(schedule: InsertSchedule): Promise<{ isValid: boolean; error?: string }> {
+  async validateScheduleConstraints(schedule: InsertSchedule, excludeScheduleIds?: string[]): Promise<{ isValid: boolean; error?: string }> {
     // Check if user exists
     const user = await this.getUser(schedule.userId);
     if (!user) {
@@ -131,21 +117,25 @@ export class MemStorage implements IStorage {
       s => s.userId === schedule.userId && 
            s.month === schedule.month && 
            s.year === schedule.year && 
-           s.day === schedule.day
+           s.day === schedule.day &&
+           (!excludeScheduleIds || !excludeScheduleIds.includes(s.id))
     );
     if (existingSchedule) {
       return { isValid: false, error: "User is already scheduled for this day" };
     }
 
     // Check monthly limit
-    const currentCount = await this.getMonthlyScheduleCount(schedule.userId, schedule.month, schedule.year);
+    const currentCount = await this.getMonthlyScheduleCount(schedule.userId, schedule.month, schedule.year, excludeScheduleIds);
     if (currentCount >= user.monthlyShiftLimit) {
       return { isValid: false, error: `User has reached their monthly shift limit of ${user.monthlyShiftLimit}` };
     }
 
-    // Get all schedules for this day to check role constraints
+    // Get all schedules for this day to check role constraints (excluding specified schedules)
     const daySchedules = Array.from(this.schedules.values()).filter(
-      s => s.month === schedule.month && s.year === schedule.year && s.day === schedule.day
+      s => s.month === schedule.month && 
+           s.year === schedule.year && 
+           s.day === schedule.day &&
+           (!excludeScheduleIds || !excludeScheduleIds.includes(s.id))
     );
 
     // Get users for existing schedules
@@ -186,110 +176,19 @@ export class MemStorage implements IStorage {
     return this.schedules.delete(id);
   }
 
-  async createShiftTrade(insertTrade: InsertShiftTrade): Promise<ShiftTrade> {
-    const id = randomUUID();
-    const trade: ShiftTrade = {
-      ...insertTrade,
-      id,
-      status: insertTrade.status ?? 'pending',
-      requestedAt: new Date(),
-      respondedAt: null
-    };
-    this.shiftTrades.set(id, trade);
-    return trade;
+  async updateSchedule(id: string, updates: Partial<InsertSchedule>): Promise<Schedule | undefined> {
+    const schedule = this.schedules.get(id);
+    if (!schedule) return undefined;
+    
+    const updatedSchedule = { ...schedule, ...updates };
+    this.schedules.set(id, updatedSchedule);
+    return updatedSchedule;
   }
 
-  async getShiftTrade(id: string): Promise<ShiftTrade | undefined> {
-    return this.shiftTrades.get(id);
-  }
-
-  async getShiftTrades(): Promise<ShiftTrade[]> {
-    return Array.from(this.shiftTrades.values());
-  }
-
-  async getPendingTradesForSchedule(scheduleId: string): Promise<ShiftTrade[]> {
-    return Array.from(this.shiftTrades.values()).filter(
-      trade => trade.scheduleId === scheduleId && trade.status === 'pending'
+  async getSchedulesForDay(month: number, year: number, day: number): Promise<Schedule[]> {
+    return Array.from(this.schedules.values()).filter(
+      schedule => schedule.month === month && schedule.year === year && schedule.day === day
     );
-  }
-
-  async executeShiftTrade(tradeId: string): Promise<void> {
-    const trade = this.shiftTrades.get(tradeId);
-    if (!trade) {
-      throw new Error("Trade not found");
-    }
-
-    const schedule = this.schedules.get(trade.scheduleId);
-    if (!schedule) {
-      throw new Error("Schedule not found");
-    }
-
-    // Transfer the schedule to the new user
-    const updatedSchedule = { ...schedule, userId: trade.toUserId };
-    this.schedules.set(trade.scheduleId, updatedSchedule);
-  }
-
-  async updateShiftTrade(id: string, status: 'approved' | 'rejected' | 'cancelled'): Promise<ShiftTrade | undefined> {
-    const trade = this.shiftTrades.get(id);
-    if (!trade) return undefined;
-    
-    const updatedTrade = { 
-      ...trade, 
-      status, 
-      respondedAt: new Date() 
-    };
-    this.shiftTrades.set(id, updatedTrade);
-    return updatedTrade;
-  }
-
-  // Immediate trade execution methods
-  async executeScheduleSwap(schedule1Id: string, schedule2Id: string): Promise<void> {
-    // Get both schedules
-    const schedule1 = this.schedules.get(schedule1Id);
-    const schedule2 = this.schedules.get(schedule2Id);
-
-    if (!schedule1 || !schedule2) {
-      throw new Error("One or both schedules not found");
-    }
-
-    // Swap the user IDs
-    const updatedSchedule1 = { ...schedule1, userId: schedule2.userId };
-    const updatedSchedule2 = { ...schedule2, userId: schedule1.userId };
-    
-    this.schedules.set(schedule1Id, updatedSchedule1);
-    this.schedules.set(schedule2Id, updatedSchedule2);
-  }
-
-  async transferSchedule(scheduleId: string, newUserId: string): Promise<void> {
-    const schedule = this.schedules.get(scheduleId);
-    if (!schedule) {
-      throw new Error("Schedule not found");
-    }
-
-    // Transfer the schedule to the new user
-    const updatedSchedule = { ...schedule, userId: newUserId };
-    this.schedules.set(scheduleId, updatedSchedule);
-  }
-
-  async createTradeAuditRecord(tradeData: {
-    fromUserId: string;
-    toUserId: string;
-    scheduleId: string;
-    targetScheduleId: string | null;
-    type: 'swap' | 'transfer';
-  }): Promise<void> {
-    // Create a completed trade record for audit purposes
-    const id = randomUUID();
-    const trade: ShiftTrade = {
-      id,
-      fromUserId: tradeData.fromUserId,
-      toUserId: tradeData.toUserId,
-      scheduleId: tradeData.scheduleId,
-      status: 'approved', // Mark as approved since it was executed immediately
-      requestedAt: new Date(),
-      respondedAt: new Date()
-    };
-    this.shiftTrades.set(id, trade);
   }
 
   // Monthly settings methods - placeholder for MemStorage
@@ -318,8 +217,8 @@ export class MemStorage implements IStorage {
 }
 
 import { db } from "./db";
-import { eq, and, inArray } from "drizzle-orm";
-import { users, schedules, shiftTrades, monthlySettings } from "@shared/schema";
+import { eq, and, inArray, notInArray } from "drizzle-orm";
+import { users, schedules, monthlySettings } from "@shared/schema";
 
 export class DatabaseStorage implements IStorage {
   async getUser(id: string): Promise<User | undefined> {
@@ -377,19 +276,27 @@ export class DatabaseStorage implements IStorage {
       .where(and(eq(schedules.month, month), eq(schedules.year, year)));
   }
 
-  async getMonthlyScheduleCount(userId: string, month: number, year: number): Promise<number> {
+  async getMonthlyScheduleCount(userId: string, month: number, year: number, excludeScheduleIds?: string[]): Promise<number> {
+    const conditions = [
+      eq(schedules.userId, userId),
+      eq(schedules.month, month),
+      eq(schedules.year, year)
+    ];
+    
+    // Add exclusion condition if excludeScheduleIds is provided
+    if (excludeScheduleIds && excludeScheduleIds.length > 0) {
+      conditions.push(notInArray(schedules.id, excludeScheduleIds));
+    }
+    
     const result = await db
       .select({ count: sql<number>`count(*)` })
       .from(schedules)
-      .where(and(
-        eq(schedules.userId, userId),
-        eq(schedules.month, month),
-        eq(schedules.year, year)
-      ));
+      .where(and(...conditions));
+    
     return Number(result[0]?.count) || 0;
   }
 
-  async validateScheduleConstraints(schedule: InsertSchedule): Promise<{ isValid: boolean; error?: string }> {
+  async validateScheduleConstraints(schedule: InsertSchedule, excludeScheduleIds?: string[]): Promise<{ isValid: boolean; error?: string }> {
     // Check if user exists
     const user = await this.getUser(schedule.userId);
     if (!user) {
@@ -397,35 +304,49 @@ export class DatabaseStorage implements IStorage {
     }
 
     // Check for duplicate schedule on same day for same user
+    const duplicateConditions = [
+      eq(schedules.userId, schedule.userId),
+      eq(schedules.month, schedule.month),
+      eq(schedules.year, schedule.year),
+      eq(schedules.day, schedule.day)
+    ];
+    
+    // Add exclusion condition if excludeScheduleIds is provided
+    if (excludeScheduleIds && excludeScheduleIds.length > 0) {
+      duplicateConditions.push(notInArray(schedules.id, excludeScheduleIds));
+    }
+    
     const existingSchedules = await db
       .select()
       .from(schedules)
-      .where(and(
-        eq(schedules.userId, schedule.userId),
-        eq(schedules.month, schedule.month),
-        eq(schedules.year, schedule.year),
-        eq(schedules.day, schedule.day)
-      ));
+      .where(and(...duplicateConditions));
     
     if (existingSchedules.length > 0) {
       return { isValid: false, error: "User is already scheduled for this day" };
     }
 
     // Check monthly limit
-    const currentCount = await this.getMonthlyScheduleCount(schedule.userId, schedule.month, schedule.year);
+    const currentCount = await this.getMonthlyScheduleCount(schedule.userId, schedule.month, schedule.year, excludeScheduleIds);
     if (currentCount >= user.monthlyShiftLimit) {
       return { isValid: false, error: `User has reached their monthly shift limit of ${user.monthlyShiftLimit}` };
     }
 
-    // Get all schedules for this day to check role constraints
+    // Get all schedules for this day to check role constraints (excluding specified schedules)
+    const dayConditions = [
+      eq(schedules.month, schedule.month),
+      eq(schedules.year, schedule.year),
+      eq(schedules.day, schedule.day)
+    ];
+    
+    // Add exclusion condition if excludeScheduleIds is provided
+    if (excludeScheduleIds && excludeScheduleIds.length > 0) {
+      dayConditions.push(notInArray(schedules.id, excludeScheduleIds));
+    }
+    
     const daySchedules = await db
       .select()
       .from(schedules)
-      .where(and(
-        eq(schedules.month, schedule.month),
-        eq(schedules.year, schedule.year),
-        eq(schedules.day, schedule.day)
-      ));
+      .where(and(...dayConditions));
 
     if (daySchedules.length > 0) {
       // Get users for existing schedules
@@ -467,99 +388,24 @@ export class DatabaseStorage implements IStorage {
     return (result.rowCount ?? 0) > 0;
   }
 
-  async createShiftTrade(insertTrade: InsertShiftTrade): Promise<ShiftTrade> {
-    const [trade] = await db
-      .insert(shiftTrades)
-      .values(insertTrade)
+  async updateSchedule(id: string, updates: Partial<InsertSchedule>): Promise<Schedule | undefined> {
+    const [schedule] = await db
+      .update(schedules)
+      .set(updates)
+      .where(eq(schedules.id, id))
       .returning();
-    return trade;
+    return schedule || undefined;
   }
 
-  async getShiftTrade(id: string): Promise<ShiftTrade | undefined> {
-    const [trade] = await db.select().from(shiftTrades).where(eq(shiftTrades.id, id));
-    return trade || undefined;
-  }
-
-  async getShiftTrades(): Promise<ShiftTrade[]> {
-    return await db.select().from(shiftTrades);
-  }
-
-  async getPendingTradesForSchedule(scheduleId: string): Promise<ShiftTrade[]> {
+  async getSchedulesForDay(month: number, year: number, day: number): Promise<Schedule[]> {
     return await db
       .select()
-      .from(shiftTrades)
+      .from(schedules)
       .where(and(
-        eq(shiftTrades.scheduleId, scheduleId),
-        eq(shiftTrades.status, 'pending')
+        eq(schedules.month, month),
+        eq(schedules.year, year),
+        eq(schedules.day, day)
       ));
-  }
-
-  async executeShiftTrade(tradeId: string): Promise<void> {
-    const trade = await this.getShiftTrade(tradeId);
-    if (!trade) {
-      throw new Error("Trade not found");
-    }
-
-    // Transfer the schedule to the new user
-    await db
-      .update(schedules)
-      .set({ userId: trade.toUserId })
-      .where(eq(schedules.id, trade.scheduleId));
-  }
-
-  // New immediate trade execution methods
-  async executeScheduleSwap(schedule1Id: string, schedule2Id: string): Promise<void> {
-    // Get both schedules
-    const [schedule1, schedule2] = await Promise.all([
-      this.getSchedule(schedule1Id),
-      this.getSchedule(schedule2Id)
-    ]);
-
-    if (!schedule1 || !schedule2) {
-      throw new Error("One or both schedules not found");
-    }
-
-    // Swap the user IDs
-    await Promise.all([
-      db.update(schedules).set({ userId: schedule2.userId }).where(eq(schedules.id, schedule1Id)),
-      db.update(schedules).set({ userId: schedule1.userId }).where(eq(schedules.id, schedule2Id))
-    ]);
-  }
-
-  async transferSchedule(scheduleId: string, newUserId: string): Promise<void> {
-    await db
-      .update(schedules)
-      .set({ userId: newUserId })
-      .where(eq(schedules.id, scheduleId));
-  }
-
-  async createTradeAuditRecord(tradeData: {
-    fromUserId: string;
-    toUserId: string;
-    scheduleId: string;
-    targetScheduleId: string | null;
-    type: 'swap' | 'transfer';
-  }): Promise<void> {
-    // Create a completed trade record for audit purposes
-    await db.insert(shiftTrades).values({
-      fromUserId: tradeData.fromUserId,
-      toUserId: tradeData.toUserId,
-      scheduleId: tradeData.scheduleId,
-      status: 'approved', // Mark as approved since it was executed immediately
-      respondedAt: new Date()
-    });
-  }
-
-  async updateShiftTrade(id: string, status: 'approved' | 'rejected' | 'cancelled'): Promise<ShiftTrade | undefined> {
-    const [trade] = await db
-      .update(shiftTrades)
-      .set({ 
-        status, 
-        respondedAt: new Date() 
-      })
-      .where(eq(shiftTrades.id, id))
-      .returning();
-    return trade || undefined;
   }
 
   // Monthly settings management
@@ -619,4 +465,4 @@ export class DatabaseStorage implements IStorage {
   }
 }
 
-export const storage = new DatabaseStorage();
+export const storage = new MemStorage();

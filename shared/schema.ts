@@ -111,6 +111,17 @@ export const tradeStatusUpdateSchema = z.object({
 
 export const uuidParamSchema = z.string().uuid("ID must be a valid UUID");
 
+// Immediate trade operation schemas
+export const reassignScheduleSchema = z.object({
+  scheduleId: z.string().uuid(),
+  toUserId: z.string().uuid()
+});
+
+export const swapSchedulesSchema = z.object({
+  scheduleIdA: z.string().uuid(),
+  scheduleIdB: z.string().uuid()
+});
+
 // Types
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type User = typeof users.$inferSelect;
