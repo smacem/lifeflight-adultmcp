@@ -131,7 +131,10 @@ export default function SchedulingDashboard() {
   // Shift trade mutations
   const executeTradeMutation = useMutation({
     mutationFn: async ({ scheduleId, toUserId }: { scheduleId: string; toUserId: string }) => {
-      const response = await apiRequest('POST', '/api/execute-trade', { scheduleId, toUserId });
+      const response = await apiRequest('POST', '/api/execute-trade', { 
+        myScheduleId: scheduleId, 
+        targetUserId: toUserId 
+      });
       return response.json();
     },
     onSuccess: () => {
