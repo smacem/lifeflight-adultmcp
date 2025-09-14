@@ -134,6 +134,29 @@ export default function SchedulingDashboard() {
       queryClient.invalidateQueries({ queryKey: ['/api/users'] });
     },
   });
+
+  // Immediate trade mutations
+  const reassignScheduleMutation = useMutation({
+    mutationFn: async ({ scheduleId, toUserId }: { scheduleId: string; toUserId: string }) => {
+      const response = await apiRequest('POST', '/api/schedules/reassign', { scheduleId, toUserId });
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/schedules'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/users'] });
+    },
+  });
+
+  const swapSchedulesMutation = useMutation({
+    mutationFn: async ({ scheduleIdA, scheduleIdB }: { scheduleIdA: string; scheduleIdB: string }) => {
+      const response = await apiRequest('POST', '/api/schedules/swap', { scheduleIdA, scheduleIdB });
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/schedules'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/users'] });
+    },
+  });
   
   // Fetch monthly settings for current month
   const { data: fetchedMonthlySettings } = useQuery({
