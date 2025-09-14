@@ -129,14 +129,16 @@ export default function SchedulingDashboard() {
   });
 
   // Shift trade mutations
-  const createTradeMutation = useMutation({
-    mutationFn: async (tradeData: { fromUserId: string; toUserId: string; scheduleId: string }) => {
-      const response = await apiRequest('POST', '/api/shift-trades', tradeData);
+  const executeTradeMutation = useMutation({
+    mutationFn: async ({ scheduleId, toUserId }: { scheduleId: string; toUserId: string }) => {
+      const response = await apiRequest('POST', '/api/execute-trade', { scheduleId, toUserId });
       return response.json();
     },
     onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/schedules'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/users'] });
       queryClient.invalidateQueries({ queryKey: ['/api/shift-trades'] });
-      toast({ title: "Trade Request Sent", description: "Your shift trade request has been sent for approval." });
+      toast({ title: "Trade Executed", description: "The shift trade has been completed successfully." });
     },
   });
 
@@ -610,31 +612,8 @@ export default function SchedulingDashboard() {
     }
   };
 
-  const handleConfirmTrade = async (scheduleId: string, targetUserId: string) => {
-    try {
-      // Execute immediate trade using new API
-      const response = await apiRequest('POST', '/api/execute-trade', {
-        myScheduleId: scheduleId,
-        targetUserId: targetUserId
-      });
-      
-      const result = await response.json();
-      
-      // Refresh the data
-      queryClient.invalidateQueries({ queryKey: ['/api/schedules'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/users'] });
-      
-      toast({
-        title: "Trade Executed Successfully",
-        description: result.details || "Shift trade completed immediately.",
-      });
-    } catch (error: any) {
-      toast({
-        title: "Trade Execution Failed",
-        description: error.message || "Failed to execute trade. Please try again.",
-        variant: "destructive"
-      });
-    }
+  const handleConfirmTrade = (scheduleId: string, targetUserId: string) => {
+    executeTradeMutation.mutate({ scheduleId, toUserId: targetUserId });
   };
 
   const copyShareLink = () => {
