@@ -137,14 +137,14 @@ export default function CalendarGrid({
                           {initials}
                         </Badge>
                         
-                        {/* Trade menu - only show if not public view and handlers exist */}
+                        {/* Trade menu - always visible for touch devices, hover for desktop */}
                         {!isPublicView && (onReassignSchedule || onSwapSchedules) && (
                           <DropdownMenu>
                             <DropdownMenuTrigger asChild>
                               <Button
                                 variant="ghost"
                                 size="icon"
-                                className="absolute -top-1 -right-1 h-4 w-4 opacity-0 group-hover:opacity-100 transition-opacity bg-background border border-border rounded-full"
+                                className="absolute -top-1 -right-1 h-4 w-4 opacity-70 md:opacity-0 md:group-hover:opacity-100 transition-opacity bg-background border border-border rounded-full shadow-sm"
                                 onClick={(e) => e.stopPropagation()}
                                 data-testid={`trade-menu-${schedule.id}`}
                               >

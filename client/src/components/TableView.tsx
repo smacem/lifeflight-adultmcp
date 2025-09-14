@@ -132,7 +132,7 @@ export default function TableView({
                         <Button
                           variant="ghost"
                           size="icon"
-                          className="absolute -top-1 -right-1 h-4 w-4 opacity-0 group-hover:opacity-100 transition-opacity bg-background border border-border rounded-full"
+                          className="absolute -top-1 -right-1 h-4 w-4 opacity-70 md:opacity-0 md:group-hover:opacity-100 transition-opacity bg-background border border-border rounded-full shadow-sm"
                           onClick={(e) => e.stopPropagation()}
                           data-testid={`trade-menu-mcp-${mcpSchedule.id}`}
                         >
@@ -201,7 +201,7 @@ export default function TableView({
                         <Button
                           variant="ghost"
                           size="icon"
-                          className="absolute -top-1 -right-1 h-4 w-4 opacity-0 group-hover:opacity-100 transition-opacity bg-background border border-border rounded-full"
+                          className="absolute -top-1 -right-1 h-4 w-4 opacity-70 md:opacity-0 md:group-hover:opacity-100 transition-opacity bg-background border border-border rounded-full shadow-sm"
                           onClick={(e) => e.stopPropagation()}
                           data-testid={`trade-menu-learner-${learnerSchedule.id}`}
                         >
