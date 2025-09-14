@@ -4,10 +4,8 @@ import { storage } from "./storage";
 import { 
   insertUserSchema, 
   insertScheduleSchema, 
-  insertShiftTradeSchema,
   insertMonthlySettingsSchema,
   monthYearQuerySchema,
-  tradeStatusUpdateSchema,
   uuidParamSchema
 } from "@shared/schema";
 import { ZodError } from "zod";
@@ -178,13 +176,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ error: "Schedule not found" });
       }
       
-      // Check for pending trades
-      const pendingTrades = await storage.getPendingTradesForSchedule(scheduleId);
-      if (pendingTrades.length > 0) {
-        return res.status(409).json({ 
-          error: "Cannot delete schedule with pending shift trades. Please resolve or cancel trades first." 
-        });
-      }
       
       const success = await storage.deleteSchedule(scheduleId);
       res.json({ message: "Schedule deleted successfully" });
@@ -200,184 +191,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Shift trades endpoints
-  app.get("/api/shift-trades", async (req, res) => {
-    try {
-      const trades = await storage.getShiftTrades();
-      res.json(trades);
-    } catch (error) {
-      console.error("Error getting shift trades:", error);
-      res.status(500).json({ error: "Failed to get shift trades" });
-    }
-  });
 
-  app.post("/api/shift-trades", async (req, res) => {
-    try {
-      const validatedData = insertShiftTradeSchema.parse(req.body);
-      
-      // Validate users exist
-      const [fromUser, toUser] = await Promise.all([
-        storage.getUser(validatedData.fromUserId),
-        storage.getUser(validatedData.toUserId)
-      ]);
-      
-      if (!fromUser) {
-        return res.status(400).json({ error: "Source user not found" });
-      }
-      
-      if (!toUser) {
-        return res.status(400).json({ error: "Target user not found" });
-      }
-      
-      // Validate schedule exists and belongs to fromUser
-      const schedule = await storage.getSchedule(validatedData.scheduleId);
-      if (!schedule) {
-        return res.status(400).json({ error: "Schedule not found" });
-      }
-      
-      if (schedule.userId !== validatedData.fromUserId) {
-        return res.status(403).json({ error: "You can only trade your own shifts" });
-      }
-      
-      // Check for existing pending trades for this schedule
-      const existingTrades = await storage.getPendingTradesForSchedule(validatedData.scheduleId);
-      if (existingTrades.length > 0) {
-        return res.status(409).json({ error: "There is already a pending trade request for this shift" });
-      }
-      
-      // Note: Monthly limit checks removed for trades since they're 1:1 exchanges
-      
-      const trade = await storage.createShiftTrade(validatedData);
-      res.status(201).json(trade);
-    } catch (error) {
-      if (error instanceof ZodError) {
-        return res.status(400).json({ 
-          error: "Validation failed", 
-          details: error.errors.map(e => ({ field: e.path.join('.'), message: e.message }))
-        });
-      }
-      console.error("Error creating shift trade:", error);
-      res.status(500).json({ error: "Failed to create shift trade" });
-    }
-  });
 
-  app.put("/api/shift-trades/:id", async (req, res) => {
-    try {
-      const tradeId = uuidParamSchema.parse(req.params.id);
-      const { status } = tradeStatusUpdateSchema.parse(req.body);
-      
-      // Get the trade to validate it exists and get context
-      const existingTrade = await storage.getShiftTrade(tradeId);
-      if (!existingTrade) {
-        return res.status(404).json({ error: "Shift trade not found" });
-      }
-      
-      if (existingTrade.status !== 'pending') {
-        return res.status(409).json({ error: "Can only update pending trade requests" });
-      }
-      
-      // If approving, perform final validation
-      if (status === 'approved') {
-        const [schedule, toUser] = await Promise.all([
-          storage.getSchedule(existingTrade.scheduleId),
-          storage.getUser(existingTrade.toUserId)
-        ]);
-        
-        if (!schedule || !toUser) {
-          return res.status(400).json({ error: "Referenced schedule or user no longer exists" });
-        }
-        
-        // Note: Monthly limit checks removed for trades since they're 1:1 exchanges
-        
-        // Execute the trade (update schedule ownership)
-        await storage.executeShiftTrade(tradeId);
-      }
-      
-      const trade = await storage.updateShiftTrade(tradeId, status);
-      res.json(trade);
-    } catch (error) {
-      if (error instanceof ZodError) {
-        return res.status(400).json({ 
-          error: "Validation failed", 
-          details: error.errors.map(e => ({ field: e.path.join('.'), message: e.message }))
-        });
-      }
-      console.error("Error updating shift trade:", error);
-      res.status(500).json({ error: "Failed to update shift trade" });
-    }
-  });
 
-  // Immediate trade execution endpoint
-  app.post("/api/execute-trade", async (req, res) => {
-    try {
-      const { myScheduleId, targetUserId } = req.body;
-      
-      if (!myScheduleId || !targetUserId) {
-        return res.status(400).json({ error: "Missing required fields: myScheduleId, targetUserId" });
-      }
-
-      // Validate my schedule exists
-      const mySchedule = await storage.getSchedule(myScheduleId);
-      if (!mySchedule) {
-        return res.status(400).json({ error: "Your schedule not found" });
-      }
-
-      // Validate target user exists
-      const targetUser = await storage.getUser(targetUserId);
-      if (!targetUser) {
-        return res.status(400).json({ error: "Target user not found" });
-      }
-
-      // Find if target user has a schedule on the same day
-      const targetSchedules = await storage.getSchedulesForMonth(mySchedule.month, mySchedule.year);
-      const targetSchedule = targetSchedules.find(s => 
-        s.userId === targetUserId && 
-        s.day === mySchedule.day
-      );
-
-      // Execute immediate trade
-      if (targetSchedule) {
-        // Swap the schedules - both users have shifts on this day
-        await storage.executeScheduleSwap(myScheduleId, targetSchedule.id);
-        
-        // Create audit record of the trade
-        await storage.createTradeAuditRecord({
-          fromUserId: mySchedule.userId,
-          toUserId: targetUserId,
-          scheduleId: myScheduleId,
-          targetScheduleId: targetSchedule.id,
-          type: 'swap'
-        });
-
-        res.json({ 
-          message: "Trade executed successfully", 
-          type: "swap",
-          details: "Schedules swapped between both users"
-        });
-      } else {
-        // Transfer my schedule to target user (they don't have a shift this day)
-        await storage.transferSchedule(myScheduleId, targetUserId);
-        
-        // Create audit record of the trade
-        await storage.createTradeAuditRecord({
-          fromUserId: mySchedule.userId,
-          toUserId: targetUserId,
-          scheduleId: myScheduleId,
-          targetScheduleId: null,
-          type: 'transfer'
-        });
-
-        res.json({ 
-          message: "Trade executed successfully", 
-          type: "transfer",
-          details: "Schedule transferred to target user"
-        });
-      }
-    } catch (error) {
-      console.error("Error executing trade:", error);
-      res.status(500).json({ error: "Failed to execute trade" });
-    }
-  });
 
   // Monthly settings endpoints
   app.get("/api/monthly-settings", async (req, res) => {
