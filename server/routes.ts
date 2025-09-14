@@ -245,13 +245,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(409).json({ error: "There is already a pending trade request for this shift" });
       }
       
-      // Check if target user would exceed monthly limit
-      const monthlyCount = await storage.getMonthlyScheduleCount(validatedData.toUserId, schedule.month, schedule.year);
-      if (monthlyCount >= toUser.monthlyShiftLimit) {
-        return res.status(409).json({ 
-          error: `Target user has reached their monthly shift limit of ${toUser.monthlyShiftLimit}` 
-        });
-      }
+      // Note: Monthly limit checks removed for trades since they're 1:1 exchanges
       
       const trade = await storage.createShiftTrade(validatedData);
       res.status(201).json(trade);
@@ -293,13 +287,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           return res.status(400).json({ error: "Referenced schedule or user no longer exists" });
         }
         
-        // Re-check monthly limit in case other trades were approved
-        const monthlyCount = await storage.getMonthlyScheduleCount(existingTrade.toUserId, schedule.month, schedule.year);
-        if (monthlyCount >= toUser.monthlyShiftLimit) {
-          return res.status(409).json({ 
-            error: `Target user has reached their monthly shift limit of ${toUser.monthlyShiftLimit}` 
-          });
-        }
+        // Note: Monthly limit checks removed for trades since they're 1:1 exchanges
         
         // Execute the trade (update schedule ownership)
         await storage.executeShiftTrade(tradeId);
@@ -316,6 +304,78 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       console.error("Error updating shift trade:", error);
       res.status(500).json({ error: "Failed to update shift trade" });
+    }
+  });
+
+  // Immediate trade execution endpoint
+  app.post("/api/execute-trade", async (req, res) => {
+    try {
+      const { myScheduleId, targetUserId } = req.body;
+      
+      if (!myScheduleId || !targetUserId) {
+        return res.status(400).json({ error: "Missing required fields: myScheduleId, targetUserId" });
+      }
+
+      // Validate my schedule exists
+      const mySchedule = await storage.getSchedule(myScheduleId);
+      if (!mySchedule) {
+        return res.status(400).json({ error: "Your schedule not found" });
+      }
+
+      // Validate target user exists
+      const targetUser = await storage.getUser(targetUserId);
+      if (!targetUser) {
+        return res.status(400).json({ error: "Target user not found" });
+      }
+
+      // Find if target user has a schedule on the same day
+      const targetSchedules = await storage.getSchedulesForMonth(mySchedule.month, mySchedule.year);
+      const targetSchedule = targetSchedules.find(s => 
+        s.userId === targetUserId && 
+        s.day === mySchedule.day
+      );
+
+      // Execute immediate trade
+      if (targetSchedule) {
+        // Swap the schedules - both users have shifts on this day
+        await storage.executeScheduleSwap(myScheduleId, targetSchedule.id);
+        
+        // Create audit record of the trade
+        await storage.createTradeAuditRecord({
+          fromUserId: mySchedule.userId,
+          toUserId: targetUserId,
+          scheduleId: myScheduleId,
+          targetScheduleId: targetSchedule.id,
+          type: 'swap'
+        });
+
+        res.json({ 
+          message: "Trade executed successfully", 
+          type: "swap",
+          details: "Schedules swapped between both users"
+        });
+      } else {
+        // Transfer my schedule to target user (they don't have a shift this day)
+        await storage.transferSchedule(myScheduleId, targetUserId);
+        
+        // Create audit record of the trade
+        await storage.createTradeAuditRecord({
+          fromUserId: mySchedule.userId,
+          toUserId: targetUserId,
+          scheduleId: myScheduleId,
+          targetScheduleId: null,
+          type: 'transfer'
+        });
+
+        res.json({ 
+          message: "Trade executed successfully", 
+          type: "transfer",
+          details: "Schedule transferred to target user"
+        });
+      }
+    } catch (error) {
+      console.error("Error executing trade:", error);
+      res.status(500).json({ error: "Failed to execute trade" });
     }
   });
 

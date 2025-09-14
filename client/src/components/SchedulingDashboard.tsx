@@ -140,20 +140,7 @@ export default function SchedulingDashboard() {
     },
   });
 
-  const updateTradeMutation = useMutation({
-    mutationFn: async ({ id, status }: { id: string; status: 'approved' | 'rejected' }) => {
-      const response = await apiRequest('PUT', `/api/shift-trades/${id}`, { status });
-      return response.json();
-    },
-    onSuccess: (data, { status }) => {
-      queryClient.invalidateQueries({ queryKey: ['/api/shift-trades'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/schedules'] });
-      toast({ 
-        title: status === 'approved' ? "Trade Approved" : "Trade Rejected", 
-        description: status === 'approved' ? "The shift trade has been executed successfully." : "The trade request has been declined." 
-      });
-    },
-  });
+  // Note: updateTradeMutation removed since trades are now immediate
 
   // Delete schedule mutation
   const deleteScheduleMutation = useMutation({
@@ -210,14 +197,7 @@ export default function SchedulingDashboard() {
     }
   }, [fetchedMonthlySettings]);
 
-  // Functions to handle trade approval/rejection
-  const handleApproveTrade = async (tradeId: string) => {
-    updateTradeMutation.mutate({ id: tradeId, status: 'approved' });
-  };
-
-  const handleRejectTrade = async (tradeId: string) => {
-    updateTradeMutation.mutate({ id: tradeId, status: 'rejected' });
-  };
+  // Note: Approval/rejection functions removed since trades are now immediate
 
   const handleMonthChange = (month: string) => {
     setCurrentMonth(month);
@@ -630,35 +610,28 @@ export default function SchedulingDashboard() {
     }
   };
 
-  const handleConfirmTrade = async (myScheduleId: string, theirScheduleId: string, tradingWithUserId: string) => {
-    if (!activeMcpId) {
-      toast({
-        title: "No Active User Selected", 
-        description: "Please select an Active User to perform trades.",
-        variant: "destructive"
-      });
-      return;
-    }
-
-    // Find the schedules and users
-    const mySchedule = schedules.find((s: any) => s.id === myScheduleId);
-    const theirSchedule = schedules.find((s: any) => s.id === theirScheduleId);
-    const tradingPartner = users.find((u: User) => u.id === tradingWithUserId);
-    const activeUser = users.find((u: User) => u.id === activeMcpId);
-    
-    if (!mySchedule || !theirSchedule || !tradingPartner || !activeUser) return;
-
-    // Create the shift trade request
+  const handleConfirmTrade = async (scheduleId: string, targetUserId: string) => {
     try {
-      await createTradeMutation.mutateAsync({
-        fromUserId: activeMcpId,
-        toUserId: tradingWithUserId,
-        scheduleId: myScheduleId
+      // Execute immediate trade using new API
+      const response = await apiRequest('POST', '/api/execute-trade', {
+        myScheduleId: scheduleId,
+        targetUserId: targetUserId
+      });
+      
+      const result = await response.json();
+      
+      // Refresh the data
+      queryClient.invalidateQueries({ queryKey: ['/api/schedules'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/users'] });
+      
+      toast({
+        title: "Trade Executed Successfully",
+        description: result.details || "Shift trade completed immediately.",
       });
     } catch (error: any) {
       toast({
-        title: "Trade Request Failed",
-        description: error.message || "Failed to create shift trade request. Please try again.",
+        title: "Trade Execution Failed",
+        description: error.message || "Failed to execute trade. Please try again.",
         variant: "destructive"
       });
     }
@@ -790,7 +763,7 @@ export default function SchedulingDashboard() {
 
             {/* Recent Trades */}
             <div className="space-y-4">
-              <h3 className="text-lg font-semibold">Recent Trades</h3>
+              <h3 className="text-lg font-semibold">Trade History</h3>
               {tradeRequests.length === 0 ? (
                 <div className="text-center py-8 text-muted-foreground">
                   No recent trades. Use "Confirm Trade" above to initiate shift exchanges.
@@ -802,7 +775,7 @@ export default function SchedulingDashboard() {
                     const toUser = users.find((u: User) => u.id === trade.toUserId);
                     const schedule = schedules.find((s: any) => s.id === trade.scheduleId);
                     const isMyRequest = trade.fromUserId === activeMcpId;
-                    const isRequestToMe = trade.toUserId === activeMcpId && trade.status === 'pending';
+                    // Note: No more pending status since trades are immediate
                     
                     return (
                       <div key={trade.id} className="border border-border rounded-lg p-4 hover-elevate">
@@ -819,25 +792,7 @@ export default function SchedulingDashboard() {
                               {new Date(trade.createdAt).toLocaleDateString()}
                             </span>
                           </div>
-                          {isRequestToMe && (
-                            <div className="flex space-x-2">
-                              <Button 
-                                size="sm" 
-                                onClick={() => handleApproveTrade(trade.id)}
-                                data-testid={`button-approve-trade-${trade.id}`}
-                              >
-                                Accept
-                              </Button>
-                              <Button 
-                                size="sm" 
-                                variant="outline" 
-                                onClick={() => handleRejectTrade(trade.id)}
-                                data-testid={`button-reject-trade-${trade.id}`}
-                              >
-                                Decline
-                              </Button>
-                            </div>
-                          )}
+                          {/* Approval buttons removed - trades are now immediate */}
                         </div>
                         <div className="text-sm">
                           <span className="font-medium">{fromUser?.name}</span> wants to trade with{' '}

@@ -26,7 +26,7 @@ interface ConfirmTradeDialogProps {
   users: User[];
   schedules: Schedule[];
   currentUserId: string;
-  onConfirmTrade: (myScheduleId: string, theirScheduleId: string, tradingWithUserId: string) => void;
+  onConfirmTrade: (myScheduleId: string, targetUserId: string) => void;
 }
 
 export default function ConfirmTradeDialog({
@@ -36,7 +36,7 @@ export default function ConfirmTradeDialog({
   onConfirmTrade
 }: ConfirmTradeDialogProps) {
   const [isOpen, setIsOpen] = useState(false);
-  const [operationType, setOperationType] = useState<'trade' | 'give' | 'take'>('trade');
+  const [operationType, setOperationType] = useState<'give' | 'take'>('give');
   const [selectedMySchedule, setSelectedMySchedule] = useState("");
   const [selectedTradingPartner, setSelectedTradingPartner] = useState("");
   const [selectedTheirSchedule, setSelectedTheirSchedule] = useState("");
@@ -46,12 +46,17 @@ export default function ConfirmTradeDialog({
   const tradingPartnerSchedules = schedules.filter(s => s.userId === selectedTradingPartner);
 
   const handleConfirmTrade = () => {
-    const isValidTrade = operationType === 'trade' && selectedMySchedule && selectedTheirSchedule && selectedTradingPartner;
     const isValidGive = operationType === 'give' && selectedMySchedule && selectedTradingPartner;
     const isValidTake = operationType === 'take' && selectedTheirSchedule && selectedTradingPartner;
     
-    if (isValidTrade || isValidGive || isValidTake) {
-      onConfirmTrade(selectedMySchedule, selectedTheirSchedule, selectedTradingPartner);
+    if (isValidGive) {
+      // Give my schedule to the selected partner
+      onConfirmTrade(selectedMySchedule, selectedTradingPartner);
+      resetForm();
+      setIsOpen(false);
+    } else if (isValidTake) {
+      // Take their schedule (they lose it, I gain it)
+      onConfirmTrade(selectedTheirSchedule, currentUserId);
       resetForm();
       setIsOpen(false);
     }
@@ -61,7 +66,7 @@ export default function ConfirmTradeDialog({
     setSelectedMySchedule("");
     setSelectedTheirSchedule("");
     setSelectedTradingPartner("");
-    setOperationType('trade');
+    setOperationType('give');
   };
 
   return (
@@ -77,25 +82,18 @@ export default function ConfirmTradeDialog({
       </DialogTrigger>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Shift Actions</DialogTitle>
+          <DialogTitle>Execute Trade</DialogTitle>
         </DialogHeader>
         <div className="space-y-4">
           <div>
             <label className="text-sm font-medium mb-3 block">Action Type</label>
-            <RadioGroup value={operationType} onValueChange={(value: 'trade' | 'give' | 'take') => {
+            <RadioGroup value={operationType} onValueChange={(value: 'give' | 'take') => {
               setOperationType(value);
               // Reset form fields but preserve operation type
               setSelectedMySchedule("");
               setSelectedTheirSchedule("");
               setSelectedTradingPartner("");
             }}>
-              <div className="flex items-center space-x-2">
-                <RadioGroupItem value="trade" id="trade" />
-                <Label htmlFor="trade" className="flex items-center">
-                  <ArrowRightLeft className="w-4 h-4 mr-1" />
-                  Trade shifts
-                </Label>
-              </div>
               <div className="flex items-center space-x-2">
                 <RadioGroupItem value="give" id="give" />
                 <Label htmlFor="give" className="flex items-center">
@@ -113,7 +111,7 @@ export default function ConfirmTradeDialog({
             </RadioGroup>
           </div>
           
-          {(operationType === 'trade' || operationType === 'give') && (
+          {operationType === 'give' && (
             <div>
               <label className="text-sm font-medium">Your Shift to Give</label>
               <Select value={selectedMySchedule} onValueChange={setSelectedMySchedule}>
@@ -133,7 +131,7 @@ export default function ConfirmTradeDialog({
 
           <div>
             <label className="text-sm font-medium">
-              {operationType === 'trade' ? 'Trading With' : operationType === 'give' ? 'Give To' : 'Take From'}
+              {operationType === 'give' ? 'Give To' : 'Take From'}
             </label>
             <Select 
               value={selectedTradingPartner} 
@@ -155,11 +153,9 @@ export default function ConfirmTradeDialog({
             </Select>
           </div>
 
-          {selectedTradingPartner && (operationType === 'trade' || operationType === 'take') && (
+          {selectedTradingPartner && operationType === 'take' && (
             <div>
-              <label className="text-sm font-medium">
-                {operationType === 'trade' ? 'Your Shift to Receive' : 'Shift to Take'}
-              </label>
+              <label className="text-sm font-medium">Shift to Take</label>
               <Select value={selectedTheirSchedule} onValueChange={setSelectedTheirSchedule}>
                 <SelectTrigger data-testid="select-their-shift-trade">
                   <SelectValue placeholder="Select their shift" />
@@ -175,27 +171,13 @@ export default function ConfirmTradeDialog({
             </div>
           )}
 
-          {((operationType === 'trade' && selectedMySchedule && selectedTheirSchedule && selectedTradingPartner) ||
-            (operationType === 'give' && selectedMySchedule && selectedTradingPartner) ||
+          {((operationType === 'give' && selectedMySchedule && selectedTradingPartner) ||
             (operationType === 'take' && selectedTheirSchedule && selectedTradingPartner)) && (
             <div className="p-3 bg-muted rounded-lg">
               <div className="text-sm font-medium mb-2">
-                {operationType === 'trade' ? 'Trade Summary:' : operationType === 'give' ? 'Give Summary:' : 'Take Summary:'}
+                {operationType === 'give' ? 'Give Summary:' : 'Take Summary:'}
               </div>
               <div className="text-sm text-muted-foreground">
-                {operationType === 'trade' && (
-                  <>
-                    You give: {(() => {
-                      const mySchedule = mySchedules.find(s => s.id === selectedMySchedule);
-                      return mySchedule ? format(new Date(mySchedule.year, mySchedule.month - 1, mySchedule.day), 'MMM dd') : '';
-                    })()}
-                    <br />
-                    You receive: {(() => {
-                      const theirSchedule = tradingPartnerSchedules.find(s => s.id === selectedTheirSchedule);
-                      return theirSchedule ? format(new Date(theirSchedule.year, theirSchedule.month - 1, theirSchedule.day), 'MMM dd') : '';
-                    })()}
-                  </>
-                )}
                 {operationType === 'give' && (
                   <>
                     You give: {(() => {
@@ -224,13 +206,12 @@ export default function ConfirmTradeDialog({
           <Button 
             onClick={handleConfirmTrade}
             disabled={
-              (operationType === 'trade' && (!selectedMySchedule || !selectedTheirSchedule || !selectedTradingPartner)) ||
               (operationType === 'give' && (!selectedMySchedule || !selectedTradingPartner)) ||
               (operationType === 'take' && (!selectedTheirSchedule || !selectedTradingPartner))
             }
             data-testid="button-execute-trade"
           >
-            {operationType === 'trade' ? 'Execute Trade' : operationType === 'give' ? 'Give Shift' : 'Take Shift'}
+            {operationType === 'give' ? 'Give Shift' : 'Take Shift'}
           </Button>
         </div>
       </DialogContent>

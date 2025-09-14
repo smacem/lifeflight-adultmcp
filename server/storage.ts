@@ -28,6 +28,17 @@ export interface IStorage {
   updateShiftTrade(id: string, status: 'approved' | 'rejected' | 'cancelled'): Promise<ShiftTrade | undefined>;
   executeShiftTrade(tradeId: string): Promise<void>;
   
+  // Immediate trade execution methods
+  executeScheduleSwap(schedule1Id: string, schedule2Id: string): Promise<void>;
+  transferSchedule(scheduleId: string, newUserId: string): Promise<void>;
+  createTradeAuditRecord(tradeData: {
+    fromUserId: string;
+    toUserId: string;
+    scheduleId: string;
+    targetScheduleId: string | null;
+    type: 'swap' | 'transfer';
+  }): Promise<void>;
+  
   // Monthly settings management
   getMonthlySettings(month: number, year: number): Promise<MonthlySettings | undefined>;
   updateMonthlySettings(month: number, year: number, updates: Partial<InsertMonthlySettings>): Promise<MonthlySettings>;
@@ -231,6 +242,56 @@ export class MemStorage implements IStorage {
     return updatedTrade;
   }
 
+  // Immediate trade execution methods
+  async executeScheduleSwap(schedule1Id: string, schedule2Id: string): Promise<void> {
+    // Get both schedules
+    const schedule1 = this.schedules.get(schedule1Id);
+    const schedule2 = this.schedules.get(schedule2Id);
+
+    if (!schedule1 || !schedule2) {
+      throw new Error("One or both schedules not found");
+    }
+
+    // Swap the user IDs
+    const updatedSchedule1 = { ...schedule1, userId: schedule2.userId };
+    const updatedSchedule2 = { ...schedule2, userId: schedule1.userId };
+    
+    this.schedules.set(schedule1Id, updatedSchedule1);
+    this.schedules.set(schedule2Id, updatedSchedule2);
+  }
+
+  async transferSchedule(scheduleId: string, newUserId: string): Promise<void> {
+    const schedule = this.schedules.get(scheduleId);
+    if (!schedule) {
+      throw new Error("Schedule not found");
+    }
+
+    // Transfer the schedule to the new user
+    const updatedSchedule = { ...schedule, userId: newUserId };
+    this.schedules.set(scheduleId, updatedSchedule);
+  }
+
+  async createTradeAuditRecord(tradeData: {
+    fromUserId: string;
+    toUserId: string;
+    scheduleId: string;
+    targetScheduleId: string | null;
+    type: 'swap' | 'transfer';
+  }): Promise<void> {
+    // Create a completed trade record for audit purposes
+    const id = randomUUID();
+    const trade: ShiftTrade = {
+      id,
+      fromUserId: tradeData.fromUserId,
+      toUserId: tradeData.toUserId,
+      scheduleId: tradeData.scheduleId,
+      status: 'approved', // Mark as approved since it was executed immediately
+      requestedAt: new Date(),
+      respondedAt: new Date()
+    };
+    this.shiftTrades.set(id, trade);
+  }
+
   // Monthly settings methods - placeholder for MemStorage
   async getMonthlySettings(month: number, year: number): Promise<MonthlySettings | undefined> {
     // MemStorage doesn't persist monthly settings
@@ -294,7 +355,7 @@ export class DatabaseStorage implements IStorage {
 
   async deleteUser(id: string): Promise<boolean> {
     const result = await db.delete(users).where(eq(users.id, id));
-    return result.rowCount > 0;
+    return (result.rowCount ?? 0) > 0;
   }
 
   async getUserSchedules(userId: string): Promise<Schedule[]> {
@@ -444,6 +505,49 @@ export class DatabaseStorage implements IStorage {
       .update(schedules)
       .set({ userId: trade.toUserId })
       .where(eq(schedules.id, trade.scheduleId));
+  }
+
+  // New immediate trade execution methods
+  async executeScheduleSwap(schedule1Id: string, schedule2Id: string): Promise<void> {
+    // Get both schedules
+    const [schedule1, schedule2] = await Promise.all([
+      this.getSchedule(schedule1Id),
+      this.getSchedule(schedule2Id)
+    ]);
+
+    if (!schedule1 || !schedule2) {
+      throw new Error("One or both schedules not found");
+    }
+
+    // Swap the user IDs
+    await Promise.all([
+      db.update(schedules).set({ userId: schedule2.userId }).where(eq(schedules.id, schedule1Id)),
+      db.update(schedules).set({ userId: schedule1.userId }).where(eq(schedules.id, schedule2Id))
+    ]);
+  }
+
+  async transferSchedule(scheduleId: string, newUserId: string): Promise<void> {
+    await db
+      .update(schedules)
+      .set({ userId: newUserId })
+      .where(eq(schedules.id, scheduleId));
+  }
+
+  async createTradeAuditRecord(tradeData: {
+    fromUserId: string;
+    toUserId: string;
+    scheduleId: string;
+    targetScheduleId: string | null;
+    type: 'swap' | 'transfer';
+  }): Promise<void> {
+    // Create a completed trade record for audit purposes
+    await db.insert(shiftTrades).values({
+      fromUserId: tradeData.fromUserId,
+      toUserId: tradeData.toUserId,
+      scheduleId: tradeData.scheduleId,
+      status: 'approved', // Mark as approved since it was executed immediately
+      respondedAt: new Date()
+    });
   }
 
   async updateShiftTrade(id: string, status: 'approved' | 'rejected' | 'cancelled'): Promise<ShiftTrade | undefined> {
