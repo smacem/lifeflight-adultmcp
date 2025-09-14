@@ -2,8 +2,10 @@ import { useState } from "react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
 import { getDaysInMonth } from "date-fns";
+import { MoreHorizontal, RefreshCw, ArrowRightLeft } from "lucide-react";
 
 // Helper function to get consistent color for each user
 import { getUserColor } from '@/lib/colors';
@@ -32,6 +34,8 @@ interface TableViewProps {
   schedules: TableSchedule[];
   currentUserId?: string;
   onDayClick?: (day: number) => void;
+  onReassignSchedule?: (scheduleId: string) => void;
+  onSwapSchedules?: (scheduleId: string) => void;
   isPublicView?: boolean;
   activeMcpId?: string;
 }
@@ -42,6 +46,8 @@ export default function TableView({
   schedules,
   currentUserId,
   onDayClick,
+  onReassignSchedule,
+  onSwapSchedules,
   isPublicView = false,
   activeMcpId
 }: TableViewProps) {
@@ -114,9 +120,61 @@ export default function TableView({
           <TableCell className="text-center">
             {mcpSchedule ? (
               <div className="space-y-1">
-                <Badge className={`w-full justify-center ${getUserColor(mcpSchedule.userId, mcpSchedule.userRole)}`}>
-                  {mcpSchedule.userName}
-                </Badge>
+                <div className="relative group">
+                  <Badge className={`w-full justify-center ${getUserColor(mcpSchedule.userId, mcpSchedule.userRole)}`}>
+                    {mcpSchedule.userName}
+                  </Badge>
+                  
+                  {/* Trade menu - only show if not public view and handlers exist */}
+                  {!isPublicView && (onReassignSchedule || onSwapSchedules) && (
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="absolute -top-1 -right-1 h-4 w-4 opacity-0 group-hover:opacity-100 transition-opacity bg-background border border-border rounded-full"
+                          onClick={(e) => e.stopPropagation()}
+                          data-testid={`trade-menu-mcp-${mcpSchedule.id}`}
+                        >
+                          <MoreHorizontal className="h-2 w-2" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end" className="w-40">
+                        {onReassignSchedule && (
+                          <>
+                            <DropdownMenuItem 
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                // Open reassignment selection dialog
+                                onReassignSchedule(mcpSchedule.id);
+                              }}
+                              data-testid={`reassign-mcp-${mcpSchedule.id}`}
+                            >
+                              <RefreshCw className="mr-2 h-3 w-3" />
+                              Reassign
+                            </DropdownMenuItem>
+                          </>
+                        )}
+                        {onSwapSchedules && (
+                          <>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem 
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                // Open swap selection dialog
+                                onSwapSchedules(mcpSchedule.id);
+                              }}
+                              data-testid={`swap-mcp-${mcpSchedule.id}`}
+                            >
+                              <ArrowRightLeft className="mr-2 h-3 w-3" />
+                              Swap
+                            </DropdownMenuItem>
+                          </>
+                        )}
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  )}
+                </div>
                 {!isPublicView && (
                   <div className="text-xs text-muted-foreground">
                     {users.find(u => u.id === mcpSchedule.userId)?.phone || 'No phone'}
@@ -131,9 +189,61 @@ export default function TableView({
           <TableCell className="text-center">
             {learnerSchedule ? (
               <div className="space-y-1">
-                <Badge className={`w-full justify-center ${getUserColor(learnerSchedule.userId, learnerSchedule.userRole)}`}>
-                  {learnerSchedule.userName}
-                </Badge>
+                <div className="relative group">
+                  <Badge className={`w-full justify-center ${getUserColor(learnerSchedule.userId, learnerSchedule.userRole)}`}>
+                    {learnerSchedule.userName}
+                  </Badge>
+                  
+                  {/* Trade menu - only show if not public view and handlers exist */}
+                  {!isPublicView && (onReassignSchedule || onSwapSchedules) && (
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="absolute -top-1 -right-1 h-4 w-4 opacity-0 group-hover:opacity-100 transition-opacity bg-background border border-border rounded-full"
+                          onClick={(e) => e.stopPropagation()}
+                          data-testid={`trade-menu-learner-${learnerSchedule.id}`}
+                        >
+                          <MoreHorizontal className="h-2 w-2" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end" className="w-40">
+                        {onReassignSchedule && (
+                          <>
+                            <DropdownMenuItem 
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                // Open reassignment selection dialog
+                                onReassignSchedule(learnerSchedule.id);
+                              }}
+                              data-testid={`reassign-learner-${learnerSchedule.id}`}
+                            >
+                              <RefreshCw className="mr-2 h-3 w-3" />
+                              Reassign
+                            </DropdownMenuItem>
+                          </>
+                        )}
+                        {onSwapSchedules && (
+                          <>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem 
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                // Open swap selection dialog
+                                onSwapSchedules(learnerSchedule.id);
+                              }}
+                              data-testid={`swap-learner-${learnerSchedule.id}`}
+                            >
+                              <ArrowRightLeft className="mr-2 h-3 w-3" />
+                              Swap
+                            </DropdownMenuItem>
+                          </>
+                        )}
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  )}
+                </div>
                 <div className="text-xs text-muted-foreground">
                   {users.find(u => u.id === learnerSchedule.userId)?.phone || 'No phone'}
                 </div>

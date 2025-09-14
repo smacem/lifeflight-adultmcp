@@ -8,7 +8,7 @@ import UserManagement from "./UserManagement";
 import AdminPanel from "./AdminPanel";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { toast } from "@/hooks/use-toast";
 import { Share } from 'lucide-react';
 import jsPDF from 'jspdf';
@@ -32,6 +32,13 @@ export default function SchedulingDashboard() {
   const [shareLink, setShareLink] = useState("");
   const queryClient = useQueryClient();
   const [activeMcpId, setActiveMcpId] = useState<string>("");
+  
+  // Trade dialog states
+  const [reassignDialogOpen, setReassignDialogOpen] = useState(false);
+  const [swapDialogOpen, setSwapDialogOpen] = useState(false);
+  const [selectedScheduleId, setSelectedScheduleId] = useState<string>("");
+  const [selectedTargetUserId, setSelectedTargetUserId] = useState<string>("");
+  const [selectedSwapScheduleId, setSelectedSwapScheduleId] = useState<string>("");
   
   // Helper function to parse the current month string into month/year numbers
   const parseCurrentMonth = () => {
@@ -139,23 +146,39 @@ export default function SchedulingDashboard() {
   const reassignScheduleMutation = useMutation({
     mutationFn: async ({ scheduleId, toUserId }: { scheduleId: string; toUserId: string }) => {
       const response = await apiRequest('POST', '/api/schedules/reassign', { scheduleId, toUserId });
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to reassign schedule');
+      }
       return response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/schedules'] });
+      // Use hierarchical cache invalidation to match query keys
+      queryClient.invalidateQueries({ queryKey: ['/api/schedules', selectedMonth, selectedYear] });
       queryClient.invalidateQueries({ queryKey: ['/api/users'] });
     },
+    onError: (error: any) => {
+      console.error('Reassign mutation error:', error);
+    }
   });
 
   const swapSchedulesMutation = useMutation({
     mutationFn: async ({ scheduleIdA, scheduleIdB }: { scheduleIdA: string; scheduleIdB: string }) => {
       const response = await apiRequest('POST', '/api/schedules/swap', { scheduleIdA, scheduleIdB });
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to swap schedules');
+      }
       return response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/schedules'] });
+      // Use hierarchical cache invalidation to match query keys
+      queryClient.invalidateQueries({ queryKey: ['/api/schedules', selectedMonth, selectedYear] });
       queryClient.invalidateQueries({ queryKey: ['/api/users'] });
     },
+    onError: (error: any) => {
+      console.error('Swap mutation error:', error);
+    }
   });
   
   // Fetch monthly settings for current month
@@ -614,6 +637,122 @@ export default function SchedulingDashboard() {
     }
   };
 
+  // Trade handlers - now open selection dialogs instead of auto-targeting
+  const handleReassignSchedule = async (scheduleId: string) => {
+    const schedule = schedules.find(s => s.id === scheduleId);
+    if (!schedule) {
+      toast({
+        title: "Schedule Not Found",
+        description: "The selected schedule could not be found.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    // Find eligible users for reassignment (same role, different user)
+    const eligibleUsers = users.filter(u => 
+      u.role === (schedule.userRole === 'physician' ? 'physician' : 'learner') && 
+      u.id !== schedule.userId
+    );
+
+    if (eligibleUsers.length === 0) {
+      const roleLabel = schedule.userRole === 'physician' ? 'MCP' : 'learner';
+      toast({
+        title: "No Eligible Users",
+        description: `No other ${roleLabel}s available for reassignment. All users of this role are already assigned or unavailable.`,
+        variant: "destructive"
+      });
+      return;
+    }
+
+    // Open reassignment dialog
+    setSelectedScheduleId(scheduleId);
+    setSelectedTargetUserId("");
+    setReassignDialogOpen(true);
+  };
+
+  const handleSwapSchedules = async (scheduleId: string) => {
+    const schedule = schedules.find(s => s.id === scheduleId);
+    if (!schedule) {
+      toast({
+        title: "Schedule Not Found",
+        description: "The selected schedule could not be found.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    // Find eligible schedules for swapping (same role, different schedule, different user)
+    const eligibleSchedules = schedules.filter(s => 
+      s.userRole === schedule.userRole && 
+      s.id !== scheduleId && 
+      s.userId !== schedule.userId
+    );
+
+    if (eligibleSchedules.length === 0) {
+      const roleLabel = schedule.userRole === 'physician' ? 'MCP' : 'learner';
+      toast({
+        title: "No Swappable Schedules",
+        description: `No other ${roleLabel} shifts available for swapping. All shifts are assigned to the same user or unavailable.`,
+        variant: "destructive"
+      });
+      return;
+    }
+
+    // Open swap dialog
+    setSelectedScheduleId(scheduleId);
+    setSelectedSwapScheduleId("");
+    setSwapDialogOpen(true);
+  };
+
+  // Dialog handlers
+  const handleConfirmReassign = async () => {
+    if (!selectedScheduleId || !selectedTargetUserId) return;
+
+    try {
+      await reassignScheduleMutation.mutateAsync({ 
+        scheduleId: selectedScheduleId, 
+        toUserId: selectedTargetUserId 
+      });
+      const targetUser = users.find(u => u.id === selectedTargetUserId);
+      toast({
+        title: "Schedule Reassigned",
+        description: `Shift has been successfully reassigned to ${targetUser?.name || 'selected user'}.`,
+      });
+      setReassignDialogOpen(false);
+    } catch (error: any) {
+      const errorMessage = error.message || "Failed to reassign schedule. Please try again.";
+      toast({
+        title: "Reassignment Failed",
+        description: errorMessage,
+        variant: "destructive"
+      });
+    }
+  };
+
+  const handleConfirmSwap = async () => {
+    if (!selectedScheduleId || !selectedSwapScheduleId) return;
+
+    try {
+      await swapSchedulesMutation.mutateAsync({ 
+        scheduleIdA: selectedScheduleId, 
+        scheduleIdB: selectedSwapScheduleId 
+      });
+      toast({
+        title: "Schedules Swapped",
+        description: "The shifts have been successfully swapped between users.",
+      });
+      setSwapDialogOpen(false);
+    } catch (error: any) {
+      const errorMessage = error.message || "Failed to swap schedules. Please try again.";
+      toast({
+        title: "Swap Failed",
+        description: errorMessage,
+        variant: "destructive"
+      });
+    }
+  };
+
 
   const copyShareLink = () => {
     navigator.clipboard.writeText(shareLink);
@@ -710,6 +849,8 @@ export default function SchedulingDashboard() {
               users={users as any}
               activeMcpId={activeMcpId}
               onDayClick={handleDayClick}
+              onReassignSchedule={handleReassignSchedule}
+              onSwapSchedules={handleSwapSchedules}
             />
           </TabsContent>
 
@@ -721,6 +862,8 @@ export default function SchedulingDashboard() {
               users={users as any}
               currentUserId={activeMcpId || ''}
               onDayClick={handleDayClick}
+              onReassignSchedule={handleReassignSchedule}
+              onSwapSchedules={handleSwapSchedules}
             />
           </TabsContent>
 
@@ -783,6 +926,129 @@ export default function SchedulingDashboard() {
               </Button>
             </div>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Reassign Schedule Dialog */}
+      <Dialog open={reassignDialogOpen} onOpenChange={setReassignDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Reassign Schedule</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            {(() => {
+              const schedule = schedules.find(s => s.id === selectedScheduleId);
+              const eligibleUsers = users.filter(u => 
+                u.role === (schedule?.userRole === 'physician' ? 'physician' : 'learner') && 
+                u.id !== schedule?.userId
+              );
+              const roleLabel = schedule?.userRole === 'physician' ? 'MCP' : 'learner';
+
+              return (
+                <>
+                  {schedule && (
+                    <p className="text-sm text-muted-foreground">
+                      Reassigning {schedule.userName} from day {schedule.day} to another {roleLabel}:
+                    </p>
+                  )}
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">Select Target User:</label>
+                    <select 
+                      value={selectedTargetUserId} 
+                      onChange={(e) => setSelectedTargetUserId(e.target.value)}
+                      className="w-full px-3 py-2 border border-input rounded-md bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+                      data-testid="select-reassign-target"
+                    >
+                      <option value="">Choose {roleLabel}...</option>
+                      {eligibleUsers.map(user => (
+                        <option key={user.id} value={user.id}>{user.name}</option>
+                      ))}
+                    </select>
+                  </div>
+                </>
+              );
+            })()}
+          </div>
+          <DialogFooter>
+            <Button 
+              variant="outline" 
+              onClick={() => setReassignDialogOpen(false)}
+              disabled={reassignScheduleMutation.isPending}
+              data-testid="button-cancel-reassign"
+            >
+              Cancel
+            </Button>
+            <Button 
+              onClick={handleConfirmReassign}
+              disabled={!selectedTargetUserId || reassignScheduleMutation.isPending}
+              data-testid="button-confirm-reassign"
+            >
+              {reassignScheduleMutation.isPending ? "Reassigning..." : "Confirm Reassign"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Swap Schedules Dialog */}
+      <Dialog open={swapDialogOpen} onOpenChange={setSwapDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Swap Schedules</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            {(() => {
+              const schedule = schedules.find(s => s.id === selectedScheduleId);
+              const eligibleSchedules = schedules.filter(s => 
+                s.userRole === schedule?.userRole && 
+                s.id !== selectedScheduleId && 
+                s.userId !== schedule?.userId
+              );
+              const roleLabel = schedule?.userRole === 'physician' ? 'MCP' : 'learner';
+
+              return (
+                <>
+                  {schedule && (
+                    <p className="text-sm text-muted-foreground">
+                      Swapping {schedule.userName} on day {schedule.day} with another {roleLabel}:
+                    </p>
+                  )}
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">Select Schedule to Swap With:</label>
+                    <select 
+                      value={selectedSwapScheduleId} 
+                      onChange={(e) => setSelectedSwapScheduleId(e.target.value)}
+                      className="w-full px-3 py-2 border border-input rounded-md bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+                      data-testid="select-swap-target"
+                    >
+                      <option value="">Choose schedule...</option>
+                      {eligibleSchedules.map(s => (
+                        <option key={s.id} value={s.id}>
+                          {s.userName} - Day {s.day}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </>
+              );
+            })()}
+          </div>
+          <DialogFooter>
+            <Button 
+              variant="outline" 
+              onClick={() => setSwapDialogOpen(false)}
+              disabled={swapSchedulesMutation.isPending}
+              data-testid="button-cancel-swap"
+            >
+              Cancel
+            </Button>
+            <Button 
+              onClick={handleConfirmSwap}
+              disabled={!selectedSwapScheduleId || swapSchedulesMutation.isPending}
+              data-testid="button-confirm-swap"
+            >
+              {swapSchedulesMutation.isPending ? "Swapping..." : "Confirm Swap"}
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>

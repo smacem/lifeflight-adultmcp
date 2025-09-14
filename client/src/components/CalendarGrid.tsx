@@ -2,8 +2,10 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
 import { format, getDaysInMonth, startOfMonth, getDay } from "date-fns";
+import { MoreHorizontal, RefreshCw, ArrowRightLeft } from "lucide-react";
 
 interface CalendarUser {
   id: string;
@@ -42,6 +44,8 @@ interface CalendarGridProps {
   users: CalendarUser[];
   currentUserId?: string;
   onDayClick: (day: number) => void;
+  onReassignSchedule?: (scheduleId: string) => void;
+  onSwapSchedules?: (scheduleId: string) => void;
   isPublicView?: boolean;
 }
 
@@ -52,6 +56,8 @@ export default function CalendarGrid({
   users,
   currentUserId,
   onDayClick,
+  onReassignSchedule,
+  onSwapSchedules,
   isPublicView = false
 }: CalendarGridProps) {
   const [selectedDay, setSelectedDay] = useState<number | null>(null);
@@ -123,18 +129,71 @@ export default function CalendarGrid({
               return (
                 <TooltipProvider key={schedule.id}>
                   <Tooltip>
-                    <TooltipTrigger>
-                      <Badge 
-                        className={`text-xs px-2 py-1 cursor-help flex items-center justify-center min-w-8 h-6 ${getUserColor(schedule.userId, schedule.userRole)}`}
-                      >
-                        {initials}
-                      </Badge>
+                    <TooltipTrigger asChild>
+                      <div className="relative group">
+                        <Badge 
+                          className={`text-xs px-2 py-1 cursor-help flex items-center justify-center min-w-8 h-6 ${getUserColor(schedule.userId, schedule.userRole)}`}
+                        >
+                          {initials}
+                        </Badge>
+                        
+                        {/* Trade menu - only show if not public view and handlers exist */}
+                        {!isPublicView && (onReassignSchedule || onSwapSchedules) && (
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="absolute -top-1 -right-1 h-4 w-4 opacity-0 group-hover:opacity-100 transition-opacity bg-background border border-border rounded-full"
+                                onClick={(e) => e.stopPropagation()}
+                                data-testid={`trade-menu-${schedule.id}`}
+                              >
+                                <MoreHorizontal className="h-2 w-2" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end" className="w-40">
+                              {onReassignSchedule && (
+                                <>
+                                  <DropdownMenuItem 
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      // Open reassignment selection dialog
+                                      onReassignSchedule(schedule.id);
+                                    }}
+                                    data-testid={`reassign-${schedule.id}`}
+                                  >
+                                    <RefreshCw className="mr-2 h-3 w-3" />
+                                    Reassign
+                                  </DropdownMenuItem>
+                                </>
+                              )}
+                              {onSwapSchedules && (
+                                <>
+                                  <DropdownMenuSeparator />
+                                  <DropdownMenuItem 
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      // Open swap selection dialog
+                                      onSwapSchedules(schedule.id);
+                                    }}
+                                    data-testid={`swap-${schedule.id}`}
+                                  >
+                                    <ArrowRightLeft className="mr-2 h-3 w-3" />
+                                    Swap
+                                  </DropdownMenuItem>
+                                </>
+                              )}
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        )}
+                      </div>
                     </TooltipTrigger>
                     <TooltipContent side="top" className="max-w-xs">
                       <div className="text-sm">
                         <div className="font-medium">{schedule.userName}</div>
                         <div className="text-muted-foreground">{user?.phone || 'No phone'}</div>
                         <div className="text-xs text-muted-foreground capitalize">{schedule.userRole}</div>
+                        {!isPublicView && <div className="text-xs text-muted-foreground mt-1">Hover for trade options</div>}
                       </div>
                     </TooltipContent>
                   </Tooltip>
